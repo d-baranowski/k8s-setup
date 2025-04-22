@@ -15,7 +15,7 @@ git config --global user.name "Daniel Baranowski"
 # Install k0s
 ```
 curl -sSLf https://get.k0s.sh | sudo sh
- k0s version # v1.32.3+k0s.0
+k0s version # v1.32.3+k0s.0
 ```
 
 # Initialise cluster 
