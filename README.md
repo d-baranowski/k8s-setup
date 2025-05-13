@@ -33,6 +33,30 @@ sudo setfacl -m u:$(whoami):r /var/lib/k0s/pki/admin.conf
 kubectl get pods
 ```
 
+# Alternative file permissions for admin conf
+```
+sudo chmod 644 /var/lib/k0s/pki/admin.conf
+sudo chown $(whoami):$(whoami) /var/lib/k0s/pki/admin.conf
+```
+
+# Install Lens 
+```
+sudo apt update
+sudo apt install snapd
+sudo snap install kontena-lens --classic
+lens
+```
+
+# Debugging 
+1. Node not ready 
+```
+sudo systemctl stop k0scontroller
+sudo pkill -f kubelet
+sudo systemctl start k0scontroller
+sudo kubectl get nodes
+sudo kubectl get pods --all-namespaces
+```
+
 # Ensure node is not tainted and will accept pods
 ```
 kubectl get nodes -o json | jq '.items[].spec.taints'
