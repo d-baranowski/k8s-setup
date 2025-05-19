@@ -151,5 +151,25 @@ kubectl exec -n vault vault-0 -- vault operator unseal <unseal-key-1>
 kubectl exec -n vault vault-0 -- vault operator unseal <unseal-key-2>
 kubectl exec -n vault vault-0 -- vault operator unseal <unseal-key-3>
 ```
+# Install vault cli example
+```
+sudo apt-get update && sudo apt-get install -y gnupg software-properties-common curl
 
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+  sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+sudo apt update
+sudo apt install vault
+```
+
+# Accessing k8s vault 
+```
+kubectl port-forward -n vault vault-0 8200:8200
+export VAULT_ADDR=http://127.0.0.1:8200
+vault login <root-token>
+vault secrets enable -path=secret kv-v2
+vault kv put secret/myapp username=admin password=s3cr3t
+```
 
