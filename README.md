@@ -144,33 +144,16 @@ systemctl --user list-timers | grep fix-kube-perms
 journalctl --user-unit fix-kube-perms.service
 ```
 
-# Initialise local vault
+# Install gcloud cli 
 ```
-kubectl exec -n vault -it vault-0 -- vault operator init
-kubectl exec -n vault vault-0 -- vault operator unseal <unseal-key-1>
-kubectl exec -n vault vault-0 -- vault operator unseal <unseal-key-2>
-kubectl exec -n vault vault-0 -- vault operator unseal <unseal-key-3>
-vault auth enable kubernetes
-```
-# Install vault cli example
-```
-sudo apt-get update && sudo apt-get install -y gnupg software-properties-common curl
+sudo apt update && sudo apt install -y apt-transport-https ca-certificates gnupg
 
-curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+  | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
 
-echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
-  sudo tee /etc/apt/sources.list.d/hashicorp.list
+curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+  | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
 
-sudo apt update
-sudo apt install vault
-```
-
-# Accessing k8s vault 
-```
-kubectl port-forward -n vault vault-0 8200:8200
-export VAULT_ADDR=http://127.0.0.1:8200
-vault login <root-token>
-vault secrets enable -path=secret kv-v2
-vault kv put secret/myapp username=admin password=s3cr3t
+sudo apt update && sudo apt install -y google-cloud-sdk
 ```
 
