@@ -79,3 +79,70 @@ flux --version  # v2.5.1
 open https://github.com/settings/personal-access-tokens &
 flux bootstrap github --owner=d-baranowski --repository=k8s-setup --branch=main --path=clusters/home-pc
 ```
+# Service for checking kubeconfig file permissions
+```
+mkdir -p ~/.local/bin
+mkdir -p ~/.config/systemd/user/
+```
+
+/home/daniel/.local/bin/fix-kube-perms.sh
+```
+#!/bin/bash
+
+CONFIG="/var/lib/k0s/pki/admin.conf"
+USER="daniel"
+
+# Check ACL for read access
+if ! getfacl "$CONFIG" | grep -q "^user:$USER:r"; then
+    echo "Fixing ACL for $USER on $CONFIG"
+    sudo setfacl -m u:$USER:r "$CONFIG"
+fi
+
+# Ensure ~/.kube/config has mode 600
+if [ -f "$HOME/.kube/config" ]; then
+    current_mode=$(stat -c "%a" "$HOME/.kube/config")
+    if [ "$current_mode" != "600" ]; then
+        echo "Fixing permissions on ~/.kube/config"
+        chmod 600 "$HOME/.kube/config"
+    fi
+fi
+```
+Make executable 
+```
+chmod +x fix-kube-perms.sh
+```
+
+~/.config/systemd/user/fix-kube-perms.service
+```
+[Unit]
+Description=Fix kube config and ACL permissions
+
+[Service]
+Type=oneshot
+ExecStart=/home/daniel/.local/bin/fix-kube-perms.sh
+```
+~/.config/systemd/user/fix-kube-perms.timer
+```
+[Unit]
+Description=Run fix-kube-perms every 5 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Unit=fix-kube-perms.service
+
+[Install]
+WantedBy=timers.target
+```
+Enable timers
+```
+systemctl --user daemon-reexec
+systemctl --user daemon-reload
+systemctl --user enable --now fix-kube-perms.timer
+# Check its working
+systemctl --user list-timers | grep fix-kube-perms
+journalctl --user-unit fix-kube-perms.service
+```
+
+
+
