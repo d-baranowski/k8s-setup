@@ -157,3 +157,16 @@ curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
 sudo apt update && sudo apt install -y google-cloud-sdk
 ```
 
+# Setup Project
+```
+gcloud init
+gcloud config set project danb-ubuntu-k0s
+gcloud services enable secretmanager.googleapis.com
+gcloud iam service-accounts create k8s-secrets-accessor \
+  --display-name="K8s Secret Manager Access"
+gcloud projects add-iam-policy-binding danb-ubuntu-k0s \
+  --member="serviceAccount:k8s-secrets-accessor@danb-ubuntu-k0s.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+gcloud iam service-accounts keys create key.json --iam-account=k8s-secrets-accessor@danb-ubuntu-k0s.iam.gserviceaccount.com
+kubectl create secret generic gcp-secret-manager-creds --from-file=key.json=./key.json -n external-secrets
+```
