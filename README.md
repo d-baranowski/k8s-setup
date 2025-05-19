@@ -170,3 +170,9 @@ gcloud projects add-iam-policy-binding danb-ubuntu-k0s \
 gcloud iam service-accounts keys create key.json --iam-account=k8s-secrets-accessor@danb-ubuntu-k0s.iam.gserviceaccount.com
 kubectl create secret generic gcp-secret-manager-creds --from-file=key.json=./key.json -n external-secrets
 ```
+
+# Flux debugging 
+```
+flux reconcile source git flux-system
+flux get kustomizations
+```
