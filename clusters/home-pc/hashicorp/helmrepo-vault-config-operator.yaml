@@ -1,0 +1,8 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: hashicorp
+  namespace: vault-config-operator
+spec:
+  url: https://redhat-cop.github.io/vault-config-operator
+  interval: 60m
