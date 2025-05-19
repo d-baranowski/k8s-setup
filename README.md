@@ -144,5 +144,9 @@ systemctl --user list-timers | grep fix-kube-perms
 journalctl --user-unit fix-kube-perms.service
 ```
 
+# Initialise local vault
+```
+kubectl exec -n vault -it vault-0 -- vault operator init
+```
 
 
