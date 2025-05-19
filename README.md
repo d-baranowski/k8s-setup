@@ -150,6 +150,7 @@ kubectl exec -n vault -it vault-0 -- vault operator init
 kubectl exec -n vault vault-0 -- vault operator unseal <unseal-key-1>
 kubectl exec -n vault vault-0 -- vault operator unseal <unseal-key-2>
 kubectl exec -n vault vault-0 -- vault operator unseal <unseal-key-3>
+vault auth enable kubernetes
 ```
 # Install vault cli example
 ```
