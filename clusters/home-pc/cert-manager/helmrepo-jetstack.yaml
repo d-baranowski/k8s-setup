@@ -1,8 +1,8 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: hashicorp
+  name: jetstack
   namespace: flux-system
 spec:
-  url: https://helm.releases.hashicorp.com
+  url: hhttps://charts.jetstack.io
   interval: 60m
