@@ -41,6 +41,7 @@ apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup
 metadata:
   name: db-cluster
+  namespace: default
 spec:
   schedule: "0 12 * * 7"
   immediate: true
