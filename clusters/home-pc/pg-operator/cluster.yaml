@@ -20,8 +20,8 @@ spec:
   postgresql:
     parameters:
       wal_level: logical
-      max_replication_slots: 4
-      max_wal_senders: 10
+      max_replication_slots: "4"
+      max_wal_senders: "10"
 
   storage:
     storageClass: openebs-hostpath
