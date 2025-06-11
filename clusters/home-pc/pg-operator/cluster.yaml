@@ -1,0 +1,49 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: db-cluster
+  namespace: default
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:15
+
+  superuserSecret:
+    name: db-cluster-superuser-secret
+
+  bootstrap:
+    initdb:
+      database: appdb
+      owner: appuser
+      secret:
+        name: my-custom-superuser-secret
+
+  postgresql:
+    parameters:
+      wal_level: logical
+      max_replication_slots: 4
+      max_wal_senders: 10
+
+  storage:
+    storageClass: openebs-hostpath
+    size: 20Gi
+
+  backup:
+    retentionPolicy: 30d
+    barmanObjectStore:
+      destinationPath: s3://k8s-local-postgresql-backups
+      s3Credentials:
+        accessKeyId:
+          name: aws-access-key
+        secretAccessKey:
+          name: aws-secret-access-key
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: db-cluster
+spec:
+  schedule: "0 12 * * 7"
+  immediate: true
+  backupOwnerReference: self
+  cluster:
+    name: db-cluster
