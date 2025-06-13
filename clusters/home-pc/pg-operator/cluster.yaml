@@ -11,10 +11,10 @@ spec:
 
   bootstrap:
     initdb:
-      database: appdb
-      owner: appuser
+      database: postgres
+      owner: owner
       secret:
-        name: my-custom-superuser-secret
+        name: psql-owner-password
 
   postgresql:
     parameters:

@@ -172,6 +172,12 @@ gcloud iam service-accounts keys create key.json --iam-account=k8s-secrets-acces
 kubectl create secret generic gcp-secret-manager-creds --from-file=key.json=./key.json -n external-secrets
 ```
 
+# Creating secrets using gloud cli
+```
+gcloud secrets create SECRET_NAME --replication-policy="automatic"
+echo -n "your-secret-value" | gcloud secrets versions add SECRET_NAME --data-file=-
+```
+
 # Flux debugging 
 ```
 flux reconcile source git flux-system
