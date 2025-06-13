@@ -23,9 +23,6 @@ spec:
               value: daniel.m.baranowski@gmail.com 
             - name: PGADMIN_DEFAULT_PASSWORD
               value: pg-admin-local-pass
-          envFrom:
-            - secretRef:
-                name: pgadmin-secret
           volumeMounts:
             - name: pgadmin-storage
               mountPath: /var/lib/pgadmin
