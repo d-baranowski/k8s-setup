@@ -1,3 +1,3 @@
 flux reconcile source git flux-system
-sleep 1
+sleep 3
 flux get kustomizations

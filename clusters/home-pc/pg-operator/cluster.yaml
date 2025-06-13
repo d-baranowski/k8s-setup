@@ -16,6 +16,10 @@ spec:
       owner: owner
       secret:
         name: psql-owner-password
+      postInitSQL:
+        - inline: |
+            ALTER ROLE owner WITH LOGIN;
+            GRANT ALL PRIVILEGES ON DATABASE postgres TO owner;
 
   postgresql:
     parameters:
