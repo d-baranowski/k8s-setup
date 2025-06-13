@@ -6,23 +6,13 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   rules:
-    - host: db-cluster-r.local
+    - host: pgadmin.local
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: db-cluster-r
+                name: pgadmin
                 port:
-                  number: 5432
-    - host: db-cluster-rw.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: db-cluster-rw
-                port:
-                  number: 5432
+                  number: 80 
