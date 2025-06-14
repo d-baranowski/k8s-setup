@@ -7,9 +7,11 @@ if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
 fi
 
 sudo systemctl stop k0scontroller
+sleep 4
 sudo pkill -f kubelet
+sleep 4
 sudo systemctl start k0scontroller
-sleep 1
+sleep 4
 sudo k0s kubeconfig admin > ~/.kube/config
 chmod 600 ~/.kube/config
 sudo setfacl -m u:$(whoami):r /var/lib/k0s/pki/admin.conf

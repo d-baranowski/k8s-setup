@@ -38,8 +38,10 @@ spec:
       s3Credentials:
         accessKeyId:
           name: aws-access-key
+          key: value
         secretAccessKey:
           name: aws-secret-access-key
+          key: value
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup
