@@ -1,6 +1,6 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: atas-operator
+  name: atlas-operator
   labels:
-    name: atas-operator
+    name: atlas-operator
