@@ -18,7 +18,7 @@ spec:
   chart:
     spec:
       chart: atlas-operator
-      version: "0.2.2"  # Update as needed
+      version: "0.7.10"  # Update as needed
       sourceRef:
         kind: HelmRepository
         name: atlas-operator
