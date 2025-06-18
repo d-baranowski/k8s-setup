@@ -23,8 +23,7 @@ spec:
         END IF;
       END $$;
 
-      -- CREATE DATABASE must be top-level; use this with IF NOT EXISTS workaround:
-      SELECT 'CREATE DATABASE n8n OWNER n8nuser'
-      WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'n8n')\gexec
+      -- Just run create db — may fail if already exists (OK on idempotent runs)
+      CREATE DATABASE n8n OWNER n8nuser;
 
       GRANT ALL PRIVILEGES ON DATABASE n8n TO n8nuser;
