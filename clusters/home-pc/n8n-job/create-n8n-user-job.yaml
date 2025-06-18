@@ -22,7 +22,7 @@ spec:
               key: password
         command: ["sh", "-c"]
         args:
-          - |
-            psql -h db-cluster-rw.default.svc.cluster.local -U owner -d postgres -c \
-            "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'n8nuser') THEN CREATE ROLE n8nuser WITH LOGIN PASSWORD '${N8N_PASSWORD}'; END IF; END $$;"
+        - |
+          psql -h db-cluster-rw.default.svc.cluster.local -U owner -d postgres -c \
+          "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'n8nuser') THEN CREATE ROLE n8nuser WITH LOGIN PASSWORD '${N8N_PASSWORD}'; END IF; END \$\$;"
       restartPolicy: OnFailure
