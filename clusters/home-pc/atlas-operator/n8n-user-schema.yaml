@@ -22,3 +22,4 @@ spec:
           CREATE ROLE n8nuser WITH LOGIN PASSWORD '{{ .n8n_password }}';
         END IF;
       END $$;
+      INSERT into test.dupa (hejka) values (ARRAY['A', 'T', 'L', 'A', 'S']::char[]);
