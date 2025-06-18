@@ -3,4 +3,3 @@ kind: Kustomization
 resources:
   - atlas-oparator-helm.yaml
   - atlas-db-url-secret.yaml
-  - n8n-user-schema.yaml
