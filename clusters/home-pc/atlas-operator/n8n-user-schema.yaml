@@ -7,14 +7,12 @@ spec:
   urlFrom:
     secretKeyRef:
       name: atlas-db-url
-      namespace: atlas-operator
       key: value
   vars:
     - key: n8n_password
       valueFrom:
         secretKeyRef:
           name: n8n-user-password
-          namespace: atlas-operator
           key: password
   schema:
     sql: |

@@ -183,3 +183,16 @@ echo -n "your-secret-value" | gcloud secrets versions add SECRET_NAME --data-fil
 flux reconcile source git flux-system
 flux get kustomizations
 ```
+
+# Known issues 
+For some resason the owner user nor the superuser cluster password secret gets created I had to manually set up the password
+
+➜  ~ kubectl exec -it -n default db-cluster-1 -- bash
+psql 
+\du
+postgres=# ALTER ROLE owner WITH LOGIN;
+ALTER ROLE
+postgres=# GRANT ALL PRIVILEGES ON DATABASE postgres TO owner;
+GRANT
+postgres=# ALTER ROLE owner WITH LOGIN PASSWORD 'the one from the secret'
+
