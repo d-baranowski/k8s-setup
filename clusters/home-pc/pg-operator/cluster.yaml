@@ -9,7 +9,7 @@ spec:
   enableSuperuserAccess: true
   superuserSecret:
     name: db-cluster-superuser
-
+    
   bootstrap:
     initdb:
       database: postgres
