@@ -17,3 +17,5 @@ spec:
   schema:
     sql: |
       CREATE ROLE n8n_user WITH LOGIN PASSWORD '{{ .n8n_password }}';
+      CREATE DATABASE n8n;
+      GRANT ALL PRIVILEGES ON DATABASE n8n TO n8n_user;
