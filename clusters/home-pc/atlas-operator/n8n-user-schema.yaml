@@ -14,6 +14,11 @@ spec:
         secretKeyRef:
           name: n8n-user-password
           key: password
+  users:
+  - name: n8nuser
+    password: '{{ .n8n_password }}'
+    roles:
+      - LOGIN
   schema:
     sql: |
       DO $$
@@ -27,5 +32,8 @@ spec:
           id SERIAL PRIMARY KEY
       );
 
+      INSERT INTO my_schema.my_table DEFAULT VALUES;
+      INSERT INTO my_schema.my_table DEFAULT VALUES;
+      INSERT INTO my_schema.my_table DEFAULT VALUES;
       INSERT INTO my_schema.my_table DEFAULT VALUES;
 
