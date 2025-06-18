@@ -22,8 +22,3 @@ spec:
           CREATE ROLE n8nuser WITH LOGIN PASSWORD '{{ .n8n_password }}';
         END IF;
       END $$;
-
-      -- Just run create db — may fail if already exists (OK on idempotent runs)
-      CREATE DATABASE n8n OWNER n8nuser;
-
-      GRANT ALL PRIVILEGES ON DATABASE n8n TO n8nuser;
