@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-n8n-user
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+      - name: psql
+        image: postgres:16
+        env:
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: psql-owner-password
+              key: password
+        - name: N8N_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: n8n-user-password
+              key: password
+        command: ["sh", "-c"]
+        args:
+          - |
+            psql -h db-cluster-rw.default.svc.cluster.local -U owner -d postgres -c \
+            "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'n8nuser') THEN CREATE ROLE n8nuser WITH LOGIN PASSWORD '${N8N_PASSWORD}'; END IF; END $$;"
+      restartPolicy: OnFailure
