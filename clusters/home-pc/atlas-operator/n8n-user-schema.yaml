@@ -1,0 +1,19 @@
+apiVersion: db.atlasgo.io/v1alpha1
+kind: AtlasSchema
+metadata:
+  name: n8n-user
+  namespace: atlas-operator
+spec:
+  urlFrom:
+    secretKeyRef:
+      name: atlas-db-url
+      key: value
+  vars:
+    - key: n8n_password
+      valueFrom:
+        secretKeyRef:
+          name: n8n-user-password
+          key: password
+  schema:
+    sql: |
+      CREATE ROLE n8n_user WITH LOGIN PASSWORD '{{ .n8n_password }}';

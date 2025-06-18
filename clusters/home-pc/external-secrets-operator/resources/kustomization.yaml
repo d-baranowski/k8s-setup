@@ -4,3 +4,4 @@ resources:
   - clustersecretstore-google-secrets.yaml
   - externalsecret-test-secret.yaml
   - psql-owner-password-secret.yaml
+  - n8n-user-password-secret.yaml
