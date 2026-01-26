@@ -3,3 +3,12 @@ kind: Kustomization
 resources:
 - gotk-components.yaml
 - gotk-sync.yaml
+- cert-manager-kustomization.yaml
+- external-secrets-operator-kustomization.yaml
+- external-secrets-resources-kustomization.yaml
+- openebs-kustomization.yaml
+- kubernetes-sigs-kustomization.yaml
+- nginx-ingress-kustomization.yaml
+- atlas-operator-kustomization.yaml
+- pg-operator-kustomization.yaml
+- n8n-user-job-kustomization.yaml
