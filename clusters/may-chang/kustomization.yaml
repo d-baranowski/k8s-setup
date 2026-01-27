@@ -6,6 +6,5 @@ resources:
   - external-secrets-operator
   - openebs
   - kubernetes-sigs
-  - nginx-ingress
   - atlas-operator
   - pg-operator
