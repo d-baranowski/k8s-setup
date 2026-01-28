@@ -5,7 +5,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: ./clusters/home-pc/kubernetes-sigs
+  path: ./clusters/may-chang/kubernetes-sigs
   prune: true
   sourceRef:
     kind: GitRepository

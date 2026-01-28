@@ -8,6 +8,7 @@ resources:
 - external-secrets-resources-kustomization.yaml
 - openebs-kustomization.yaml
 - kubernetes-sigs-kustomization.yaml
-- atlas-operator-kustomization.yaml
 - pg-operator-kustomization.yaml
+- nginx-ingress-kustomization.yaml
 - n8n-user-job-kustomization.yaml
+- atlas-operator-kustomization.yaml

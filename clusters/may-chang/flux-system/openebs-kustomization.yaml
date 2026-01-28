@@ -5,7 +5,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: ./clusters/home-pc/openebs
+  path: ./clusters/may-chang/openebs
   prune: true
   sourceRef:
     kind: GitRepository

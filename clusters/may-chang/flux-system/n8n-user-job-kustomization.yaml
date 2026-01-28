@@ -10,7 +10,7 @@ spec:
     - name: external-secrets-resources
       namespace: flux-system
   interval: 10m
-  path: ./clusters/home-pc/n8n-job
+  path: ./clusters/may-chang/n8n-job
   prune: true
   sourceRef:
     kind: GitRepository
