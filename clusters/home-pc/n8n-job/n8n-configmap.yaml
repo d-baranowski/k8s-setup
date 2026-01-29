@@ -10,13 +10,14 @@ metadata:
 data:
   NODE_ENV: "production"
   GENERIC_TIMEZONE: "Europe/Warsaw"
-  WEBHOOK_TUNNEL_URL: "http://n8n.local/" 
+  WEBHOOK_TUNNEL_URL: "https://n8n.local/" 
   # Database configurations
   DB_TYPE: "postgresdb"
   DB_POSTGRESDB_USER: "n8nuser"
   DB_POSTGRESDB_DATABASE: "n8n"
   DB_POSTGRESDB_HOST: "db-cluster-rw.default.svc.cluster.local"
   DB_POSTGRESDB_PORT: "5432"
+  N8N_RUNNERS_ENABLED: "true"
   # Turn on basic auth
   N8N_BASIC_AUTH_ACTIVE: "true"
   N8N_BASIC_AUTH_USER: "n8n"

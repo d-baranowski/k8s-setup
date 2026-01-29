@@ -1,0 +1,40 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  creationTimestamp: "2025-06-14T14:07:17Z"
+  generation: 1
+  labels:
+    kustomize.toolkit.fluxcd.io/name: external-secrets-resources
+    kustomize.toolkit.fluxcd.io/namespace: flux-system
+  name: aws-access-key
+  namespace: default
+  resourceVersion: "594645"
+  uid: b59dd464-e4c1-4195-8f88-ef9bfa67dec3
+spec:
+  data:
+  - remoteRef:
+      conversionStrategy: Default
+      decodingStrategy: None
+      key: aws-access-key
+      metadataPolicy: None
+      version: latest
+    secretKey: value
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: google-secrets
+  target:
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    name: aws-access-key
+status:
+  binding:
+    name: aws-access-key
+  conditions:
+  - lastTransitionTime: "2025-07-11T12:09:02Z"
+    message: Secret was synced
+    reason: SecretSynced
+    status: "True"
+    type: Ready
+  refreshTime: "2026-01-29T20:44:40Z"
+  syncedResourceVersion: 1-c843db4bec33d54cc9fdb5dedaa308d0
