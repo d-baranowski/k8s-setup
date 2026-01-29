@@ -5,7 +5,7 @@ flux reconcile kustomization external-secrets-operator
 flux reconcile kustomization external-secrets-resources
 flux reconcile kustomization flux-system
 flux reconcile kustomization kubernetes-sigs
-flux reconcile kustomization n8n-user-job
+flux reconcile kustomization n8n
 flux reconcile kustomization nginx-ingress
 flux reconcile kustomization openebs
 flux reconcile kustomization pg-operator
