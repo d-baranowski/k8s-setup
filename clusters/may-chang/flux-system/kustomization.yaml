@@ -10,5 +10,5 @@ resources:
 - kubernetes-sigs-kustomization.yaml
 - pg-operator-kustomization.yaml
 - nginx-ingress-kustomization.yaml
-- n8n-user-job-kustomization.yaml
+- n8n-kustomization.yaml
 - atlas-operator-kustomization.yaml
