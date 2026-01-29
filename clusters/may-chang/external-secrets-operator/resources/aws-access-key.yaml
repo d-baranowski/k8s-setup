@@ -9,6 +9,11 @@ spec:
     kind: ClusterSecretStore
     name: google-secrets
   target:
+    name: aws-access-key
     creationPolicy: Owner
     deletionPolicy: Retain
-    name: aws-access-key
+  data:
+    - secretKey: value
+      remoteRef:
+        key: aws-access-key
+        version: latest
