@@ -1,20 +1,9 @@
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  labels:
-    kustomize.toolkit.fluxcd.io/name: external-secrets-resources
-    kustomize.toolkit.fluxcd.io/namespace: flux-system
   name: aws-access-key
   namespace: default
 spec:
-  data:
-    - remoteRef:
-        conversionStrategy: Default
-        decodingStrategy: None
-        key: aws-access-key
-        metadataPolicy: None
-        version: latest
-      secretKey: value
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore

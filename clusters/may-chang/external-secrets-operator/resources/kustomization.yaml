@@ -2,3 +2,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - clustersecretstore-google-secrets.yaml
+  - aws-access-key.yaml
+  - aws-secret-access-key.yaml
