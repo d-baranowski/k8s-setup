@@ -5,6 +5,8 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
+    - name: external-secrets-operator
+      namespace: flux-system
     - name: external-secrets-resources
       namespace: flux-system
   interval: 10m

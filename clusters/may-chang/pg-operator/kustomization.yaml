@@ -5,3 +5,5 @@ resources:
   - cluster.yaml
   - pgadmin.yaml
   - cluster-ingress.yaml
+  - db-cluster-superuser-secret.yaml
+  - psql-owner-password-secret.yaml
