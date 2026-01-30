@@ -12,3 +12,4 @@ resources:
 - nginx-ingress-kustomization.yaml
 - n8n-kustomization.yaml
 - atlas-operator-kustomization.yaml
+- pg-operator-kustomization.yaml
