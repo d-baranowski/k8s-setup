@@ -5,10 +5,8 @@ kind: Kustomization
 # the job manifest.
 resources:
   - n8n-namespace.yaml
-  - create-n8n-user-job.yaml
   - n8n-configmap.yaml
   - n8n-deployment.yaml
   - n8n-ingress.yaml
   - n8n-secrets.yaml
   - n8n-service.yaml
-  - n8n-user-password-secret.yaml

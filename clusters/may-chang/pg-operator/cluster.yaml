@@ -10,13 +10,55 @@ spec:
   enableSuperuserAccess: true
   superuserSecret:
     name: db-cluster-superuser
-    
+
+  managed:
+    roles:
+      - name: utro
+        ensure: present
+        login: true
+        superuser: true
+        createdb: true
+        createrole: true
+        inherit: false
+        replication: false
+        bypassrls: true
+        inRoles: &pg_privileged_roles
+          - pg_checkpoint
+          - pg_create_subscription
+          - pg_database_owner
+          - pg_execute_server_program
+          - pg_maintain
+          - pg_monitor
+          - pg_read_all_data
+          - pg_read_all_settings
+          - pg_read_all_stats
+          - pg_read_server_files
+          - pg_signal_backend
+          - pg_stat_scan_tables
+          - pg_use_reserved_connections
+          - pg_write_all_data
+          - pg_write_server_files
+        passwordSecret:
+          name: utro-db-user
+      - name: n8n
+        ensure: present
+        login: true
+        superuser: true
+        createdb: true
+        createrole: true
+        inherit: false
+        replication: false
+        bypassrls: true
+        inRoles: *pg_privileged_roles
+        passwordSecret:
+          name: n8n-db-user
+
   bootstrap:
     initdb:
       database: postgres
       owner: owner
       secret:
-        name: psql-owner-password
+        name: db-cluster-superuser
       postInitSQL:
         - |
             ALTER ROLE owner WITH LOGIN;
