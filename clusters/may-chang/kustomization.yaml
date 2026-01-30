@@ -7,4 +7,5 @@ resources:
   - openebs
   - kubernetes-sigs
   - atlas-operator
+  - cloudnative-pg
 #  - pg-operator
