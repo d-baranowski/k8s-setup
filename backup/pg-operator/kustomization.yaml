@@ -5,7 +5,7 @@ resources:
   - cluster.yaml
   - pgadmin.yaml
   - cluster-ingress.yaml
-  - db-cluster-superuser-secret.yaml
-  - psql-owner-password-secret.yaml
-  - n8n-db-user-secret.yaml
-  - utro-db-user-secret.yaml
+  - ../../clusters/may-chang/cloudnative-pg/db-cluster-superuser-secret.yaml
+  - ../../clusters/may-chang/cloudnative-pg/psql-owner-password-secret.yaml
+  - ../../clusters/may-chang/cloudnative-pg/n8n-db-user-secret.yaml
+  - ../../clusters/may-chang/cloudnative-pg/utro-db-user-secret.yaml

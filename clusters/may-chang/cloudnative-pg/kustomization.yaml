@@ -4,3 +4,7 @@ resources:
   - namespace-cloudnative-pg.yaml
   - helmrepo-cloudnative-pg.yaml
   - helmrelease-cloudnative-pg.yaml
+  - db-cluster-superuser-secret.yaml
+  - psql-owner-password-secret.yaml
+  - n8n-db-user-secret.yaml
+  - utro-db-user-secret.yaml
