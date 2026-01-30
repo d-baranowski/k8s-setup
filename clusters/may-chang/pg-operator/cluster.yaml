@@ -7,6 +7,9 @@ spec:
   teamId: "inspiration-particle"
   numberOfInstances: 2
 
+  postgresql:
+    version: "15"
+
   volume:
     size: 20Gi
 
