@@ -1,0 +1,19 @@
+apiVersion: acid.zalan.do/v1
+kind: postgresql
+metadata:
+  name: pg-op-cluster
+  namespace: pg-operator
+spec:
+  teamId: "inspiration-particle"
+  numberOfInstances: 2
+
+  volume:
+    size: 20Gi
+
+  users:
+    n8n_user: [CREATEROLE]
+    utro_user: [CREATEROLE]
+
+  databases:
+    n8n: n8n_user
+    utro: utro_user
