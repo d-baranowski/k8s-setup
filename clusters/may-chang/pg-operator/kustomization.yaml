@@ -7,4 +7,3 @@ resources:
   - cluster-ingress.yaml
   - db-cluster-superuser-secret.yaml
   - psql-owner-password-secret.yaml
-  - password-drift-cronjob.yaml
