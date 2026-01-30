@@ -8,3 +8,6 @@ resources:
   - psql-owner-password-secret.yaml
   - n8n-db-user-secret.yaml
   - utro-db-user-secret.yaml
+  - cluster.yaml
+  - cluster-ingress.yaml
+  - pgadmin.yaml
