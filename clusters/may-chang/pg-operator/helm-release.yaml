@@ -1,0 +1,51 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: pg-operator
+  namespace: pg-operator
+spec:
+  # Override Release name to avoid the pattern Namespace-Release
+  # Ref: https://fluxcd.io/flux/components/helm/api/v2/#helm.toolkit.fluxcd.io/v2.HelmRelease
+  releaseName: pg-operator
+  targetNamespace: pg-operator
+  interval: 10m
+  chart:
+    spec:
+      chart: postgres-operator
+      version: 1.15.1
+      sourceRef:
+        kind: HelmRepository
+        name: pg-operator
+        namespace: flux-system
+  values:
+    installCRDs: true
+    enableJsonLogging: true
+    enable_cross_namespace_secret: true
+
+  # Ref: https://fluxcd.io/flux/components/helm/api/v2/#helm.toolkit.fluxcd.io/v2.Install
+  install:
+    createNamespace: true
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: pg-operator-ui
+  namespace: pg-operator
+spec:
+  # Override Release name to avoid the pattern Namespace-Release
+  # Ref: https://fluxcd.io/flux/components/helm/api/v2/#helm.toolkit.fluxcd.io/v2.HelmRelease
+  releaseName: pg-operator-ui
+  targetNamespace: pg-operator
+  interval: 10m
+  chart:
+    spec:
+      chart: postgres-operator-ui
+      version: 1.15.1
+      sourceRef:
+        kind: HelmRepository
+        name: pg-operator-ui
+        namespace: flux-system
+
+  # Ref: https://fluxcd.io/flux/components/helm/api/v2/#helm.toolkit.fluxcd.io/v2.Install
+  install:
+    createNamespace: true

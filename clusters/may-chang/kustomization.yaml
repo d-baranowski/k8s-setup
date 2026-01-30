@@ -8,4 +8,5 @@ resources:
   - kubernetes-sigs
   - atlas-operator
   - cloudnative-pg
+  - pg-operator
 #  - pg-operator
