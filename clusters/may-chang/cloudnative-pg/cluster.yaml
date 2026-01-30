@@ -11,6 +11,7 @@ spec:
 
   managed:
     roles:
+    # For some fucking reason this does not work
       - name: utro
         ensure: present
         login: true
