@@ -6,7 +6,4 @@ resources:
   - external-secrets-operator
   - openebs
   - kubernetes-sigs
-  - atlas-operator
-  - cloudnative-pg
   - pg-operator
-#  - pg-operator
