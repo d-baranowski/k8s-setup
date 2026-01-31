@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: pgadmin
-          image: dpage/pgadmin4:8
+          image: dpage/pgadmin4:9.11.0
           ports:
             - containerPort: 80
           env:
@@ -23,6 +23,12 @@ spec:
               value: daniel.m.baranowski@gmail.com 
             - name: PGADMIN_DEFAULT_PASSWORD
               value: pg-admin-local-pass
+#            - name: PGADMIN_REPLACE_SERVERS_ON_STARTUP
+#              value: "true"
+#            - name: PGPASS_FILE
+#              value: "todo"
+#            - name: PGADMIN_SERVER_JSON_FILE
+#              value: "todo"
           volumeMounts:
             - name: pgadmin-storage
               mountPath: /var/lib/pgadmin
