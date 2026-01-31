@@ -5,13 +5,13 @@ metadata:
   namespace: default
 spec:
   teamId: "inspiration-particle"
-  numberOfInstances: 2
+  numberOfInstances: 1
 
   postgresql:
     version: "15"
 
   volume:
-    size: 20Gi
+    size: 40Gi
 
   users:
     n8n_user: [CREATEROLE]
