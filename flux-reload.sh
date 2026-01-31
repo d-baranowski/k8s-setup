@@ -1,5 +1,4 @@
 flux reconcile source git flux-system
-flux reconcile kustomization atlas-operator
 flux reconcile kustomization cert-manager
 flux reconcile kustomization external-secrets-operator
 flux reconcile kustomization external-secrets-resources

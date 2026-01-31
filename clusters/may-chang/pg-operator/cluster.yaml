@@ -9,6 +9,9 @@ spec:
 
   postgresql:
     version: "15"
+    parameters:
+      shared_preload_libraries: "pg_cron"
+      cron.database_name: "utro"
 
   volume:
     size: 40Gi
