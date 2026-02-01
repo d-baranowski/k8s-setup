@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: core
+  namespace: default
+  labels:
+    app: core
+spec:
+  serviceName: core
+  replicas: 1
+  selector:
+    matchLabels:
+      app: core
+  template:
+    metadata:
+      labels:
+        app: core
+    spec:
+      containers:
+      - name: core
+        image: docker.io/inspirationparticleltd/utro-core:main # {"$imagepolicy": "flux-system:utro-core"}
+        ports:
+        - containerPort: 9102
+          name: api
+        - containerPort: 18007
+          name: health
+        env:
+        - name: HEALTH_PORT
+          value: "18007"
+        - name: API_PORT
+          value: "9102"
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: RPG_PERMISSIONS_FLAG
+          value: "true"
+        - name: DB_HOST
+          value: "pg-op-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: password
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: health
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: health
+          initialDelaySeconds: 10
+          periodSeconds: 5

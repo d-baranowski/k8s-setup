@@ -1,0 +1,26 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: utro-core
+  namespace: flux-system
+spec:
+  image: docker.io/inspirationparticleltd/utro-core
+  interval: 5m0s
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: utro-gateway
+  namespace: flux-system
+spec:
+  image: docker.io/inspirationparticleltd/utro-gateway
+  interval: 5m0s
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: utro-ui
+  namespace: flux-system
+spec:
+  image: docker.io/inspirationparticleltd/utro-ui
+  interval: 5m0s

@@ -1,0 +1,44 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: utro-core
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: core
+  filterTags:
+    pattern: '^v?[0-9]+\.[0-9]+\.[0-9]+'
+    extract: '$0'
+  policy:
+    semver:
+      range: '>=0.0.0'
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: utro-gateway
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: gateway
+  filterTags:
+    pattern: '^v?[0-9]+\.[0-9]+\.[0-9]+'
+    extract: '$0'
+  policy:
+    semver:
+      range: '>=0.0.0'
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: utro-ui
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: ui
+  filterTags:
+    pattern: '^v?[0-9]+\.[0-9]+\.[0-9]+'
+    extract: '$0'
+  policy:
+    semver:
+      range: '>=0.0.0'

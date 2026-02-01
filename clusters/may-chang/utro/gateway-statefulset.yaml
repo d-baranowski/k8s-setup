@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: gateway
+  namespace: default
+  labels:
+    app: gateway
+spec:
+  serviceName: gateway
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+      - name: gateway
+        image: docker.io/inspirationparticleltd/utro-gateway:main # {"$imagepolicy": "flux-system:utro-gateway"}
+        ports:
+        - containerPort: 9999
+          name: api
+        - containerPort: 18007
+          name: health
+        env:
+        - name: HEALTH_PORT
+          value: "18007"
+        - name: API_PORT
+          value: "9999"
+        - name: USER
+          value: "postgres"
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: CORE_SERVICE
+          value: "core:9102"
+        - name: WITH_PERMISSIONS
+          value: "true"
+        - name: ENABLE_PERMISSIONS
+          value: "true"
+        - name: RPG_PERMISSIONS_FLAG
+          value: "true"
+        - name: DB_HOST
+          value: "pg-op-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: password
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: health
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: health
+          initialDelaySeconds: 10
+          periodSeconds: 5
