@@ -13,6 +13,14 @@ spec:
       shared_preload_libraries: "pg_cron"
       cron.database_name: "utro"
 
+  # Allow all pods in the cluster (by Pod CIDR)
+  patroni:
+    pg_hba:
+      # SSL connections from pods
+      - "hostssl all all 10.42.0.0/16 md5"
+      # Non-SSL connections from pods (fixes: 'no encryption')
+      - "hostnossl all all 10.42.0.0/16 md5"
+
   volume:
     size: 40Gi
 
