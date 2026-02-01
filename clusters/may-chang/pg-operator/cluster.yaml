@@ -13,6 +13,23 @@ spec:
       shared_preload_libraries: "pg_cron"
       cron.database_name: "utro"
 
+  patroni:
+    dynamicConfiguration:
+      postgresql:
+        pg_hba:
+          # local (unix socket) access
+          - "local   all             postgres                                md5"
+          - "local   all             utro_user                               md5"
+          - "local   all             n8n_user                                md5"
+
+          # allow access from ANY host (IPv4 + IPv6)
+          - "host    all             postgres         0.0.0.0/0              md5"
+          - "host    all             utro_user        0.0.0.0/0              md5"
+          - "host    all             n8n_user         0.0.0.0/0              md5"
+          - "host    all             postgres         ::/0                   md5"
+          - "host    all             utro_user        ::/0                   md5"
+          - "host    all             n8n_user         ::/0                   md5"
+
   volume:
     size: 40Gi
 
