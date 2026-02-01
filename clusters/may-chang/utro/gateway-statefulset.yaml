@@ -41,6 +41,8 @@ spec:
           value: "true"
         - name: RPG_PERMISSIONS_FLAG
           value: "true"
+        - name: DB_NAME
+          value: "utro"
         - name: DB_HOST
           value: "pg-op-cluster.default.svc.cluster.local"
         - name: DB_PORT
