@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: core
+  name: utro-core
   namespace: default
   labels:
     app: core
