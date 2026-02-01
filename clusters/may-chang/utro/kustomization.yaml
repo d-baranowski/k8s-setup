@@ -10,3 +10,4 @@ resources:
   - core-service.yaml
   - ui-statefulset.yaml
   - ui-service.yaml
+  - utro-cloudflare-tunnel-secret.yaml
