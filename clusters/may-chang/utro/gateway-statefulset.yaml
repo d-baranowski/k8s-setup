@@ -41,6 +41,8 @@ spec:
           value: "true"
         - name: RPG_PERMISSIONS_FLAG
           value: "true"
+        - name: DB_SSL
+          value: "true"
         - name: DB_NAME
           value: "utro"
         - name: DB_HOST
