@@ -5,7 +5,7 @@ metadata:
   namespace: flux-system
 spec:
   imageRepositoryRef:
-    name: core
+    name: utro-core
   filterTags:
     pattern: '^v?[0-9]+\.[0-9]+\.[0-9]+'
     extract: '$0'
@@ -20,7 +20,7 @@ metadata:
   namespace: flux-system
 spec:
   imageRepositoryRef:
-    name: gateway
+    name: utro-gateway
   filterTags:
     pattern: '^v?[0-9]+\.[0-9]+\.[0-9]+'
     extract: '$0'
@@ -35,7 +35,7 @@ metadata:
   namespace: flux-system
 spec:
   imageRepositoryRef:
-    name: ui
+    name: utro-ui
   filterTags:
     pattern: '^v?[0-9]+\.[0-9]+\.[0-9]+'
     extract: '$0'
