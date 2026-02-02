@@ -4,3 +4,5 @@ resources:
   - namespace-cert-manager.yaml
   - helmrepo-jetstack.yaml
   - helmrelease-cert-manager.yaml
+  - clusterissuer-selfsigned.yaml
+  - certificate-n8n.yaml

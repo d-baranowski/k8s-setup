@@ -1,0 +1,15 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: n8n-tls
+  namespace: default
+spec:
+  secretName: n8n-tls
+  dnsNames:
+    - n8n.local
+  commonName: n8n.local
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+  duration: 2160h
+  renewBefore: 360h
