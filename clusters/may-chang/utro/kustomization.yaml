@@ -12,3 +12,4 @@ resources:
   - ui-service.yaml
   - utro-cloudflare-tunnel-secret.yaml
   - utro-ingress.yaml
+  - utro-cloudflare-statefulset.yaml
