@@ -4,3 +4,4 @@ resources:
   - clustersecretstore-google-secrets.yaml
   - aws-access-key.yaml
   - aws-secret-access-key.yaml
+  - letsencrypt-http-private-key.yaml

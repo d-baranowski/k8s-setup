@@ -8,8 +8,3 @@ resources:
   - n8n-deployment.yaml
   - n8n-service.yaml
   - n8n-ingress.yaml
-
-# add strategic merge patches to inject TLS and env vars
-patchesStrategicMerge:
-  - patch-ingress-tls.yaml
-  - patch-deployment-env.yaml

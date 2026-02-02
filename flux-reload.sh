@@ -8,5 +8,6 @@ flux reconcile kustomization nginx-ingress
 flux reconcile kustomization openebs
 flux reconcile kustomization pg-operator
 flux reconcile kustomization n8n
+flux reconcile kustomization utro
 sleep 3
 flux get kustomizations
