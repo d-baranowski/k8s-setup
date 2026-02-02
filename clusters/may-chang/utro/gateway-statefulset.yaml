@@ -34,7 +34,7 @@ spec:
         - name: LOG_LEVEL
           value: "debug"
         - name: CORE_SERVICE
-          value: "core:9102"
+          value: "utro-core..default.svc.cluster.local:9102"
         - name: WITH_PERMISSIONS
           value: "true"
         - name: ENABLE_PERMISSIONS
