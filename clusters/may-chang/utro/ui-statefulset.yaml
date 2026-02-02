@@ -25,6 +25,8 @@ spec:
         env:
         - name: NODE_ENV
           value: "production"
+        - name: BFF_URL
+          value: "http://utro-gateway:9999"
         - name: PORT
           value: "3000"
         - name: NEXT_TELEMETRY_DISABLED
