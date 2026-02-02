@@ -4,17 +4,17 @@ metadata:
   name: utro-core
   namespace: default
   labels:
-    app: core
+    app: utro-core
 spec:
-  serviceName: core
+  serviceName: utro-core
   replicas: 1
   selector:
     matchLabels:
-      app: core
+      app: utro-core
   template:
     metadata:
       labels:
-        app: core
+        app: utro-core
     spec:
       containers:
       - name: core

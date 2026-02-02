@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: ui
+  name: utro-ui
   namespace: default
   labels:
-    app: ui
+    app: utro-ui
 spec:
   type: ClusterIP
   ports:
@@ -13,4 +13,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: ui
+    app: utro-ui

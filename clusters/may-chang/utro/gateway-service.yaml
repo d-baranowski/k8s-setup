@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: gateway
+  name: utro-gateway
   namespace: default
   labels:
-    app: gateway
+    app: utro-gateway
 spec:
   type: ClusterIP
   ports:
@@ -17,4 +17,4 @@ spec:
     protocol: TCP
     name: health
   selector:
-    app: gateway
+    app: utro-gateway

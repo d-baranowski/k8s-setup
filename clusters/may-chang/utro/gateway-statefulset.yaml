@@ -4,17 +4,17 @@ metadata:
   name: utro-gateway
   namespace: default
   labels:
-    app: gateway
+    app: utro-gateway
 spec:
-  serviceName: gateway
+  serviceName: utro-gateway
   replicas: 1
   selector:
     matchLabels:
-      app: gateway
+      app: utro-gateway
   template:
     metadata:
       labels:
-        app: gateway
+        app: utro-gateway
     spec:
       containers:
       - name: gateway
