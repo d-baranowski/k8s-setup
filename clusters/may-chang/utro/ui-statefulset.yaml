@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: ui
-        image: docker.io/inspirationparticleltd/utro-ui:v0.0.6 # {"$imagepolicy": "flux-system:utro-ui"}
+        image: docker.io/inspirationparticleltd/utro-ui:v0.0.7 # {"$imagepolicy": "flux-system:utro-ui"}
         ports:
         - containerPort: 3000
           name: http
