@@ -22,6 +22,12 @@ spec:
         - image: cloudflare/cloudflared:2026.1.2
           name: cloudflared
           env:
+            - name: CF_TEAM_DOMAIN
+              value: inspiration-particle.cloudflareaccess.com
+            - name: CF_JWT_ISSUER
+              value: inspiration-particle.cloudflareaccess.com
+            - name: CF_JWT_AUDIENCE
+              value: afe0fdc2ff299a8bdc7c1e5fd42cc98ecb9c965f447abce6c559b5d6d3613865
             # Defines an environment variable for the tunnel token.
             - name: TUNNEL_TOKEN
               valueFrom:
