@@ -27,6 +27,8 @@ spec:
           value: "production"
         - name: BFF_URL
           value: "http://utro-gateway.default.svc.cluster.local:9999"
+#        - name: CORE_URL
+#          value: "http://utro-core.default.svc.cluster.local:9102"
         - name: PORT
           value: "3000"
         - name: NEXT_TELEMETRY_DISABLED
@@ -34,7 +36,7 @@ spec:
         - name: CF_TEAM_DOMAIN
           value: inspiration-particle.cloudflareaccess.com
         - name: CF_JWT_ISSUER
-          value: inspiration-particle.cloudflareaccess.com
+          value: https://inspiration-particle.cloudflareaccess.com
         - name: CF_JWT_AUDIENCE
           value: afe0fdc2ff299a8bdc7c1e5fd42cc98ecb9c965f447abce6c559b5d6d3613865
         livenessProbe:
