@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: core
-        image: docker.io/inspirationparticleltd/utro-core:v0.0.14 # {"$imagepolicy": "flux-system:utro-core"}
+        image: docker.io/inspirationparticleltd/utro-core:v0.0.15 # {"$imagepolicy": "flux-system:utro-core"}
         ports:
         - containerPort: 9102
           name: api
@@ -27,7 +27,7 @@ spec:
         env:
         - name: HEALTH_PORT
           value: "18007"
-        - name: API_PORT
+        - name: API_PORT≤
           value: "9102"
         - name: LOG_LEVEL
           value: "debug"
