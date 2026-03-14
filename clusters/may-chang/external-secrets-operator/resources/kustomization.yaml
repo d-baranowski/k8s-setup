@@ -5,3 +5,5 @@ resources:
   - aws-access-key.yaml
   - aws-secret-access-key.yaml
   - letsencrypt-http-private-key.yaml
+  - stripe-publishable-key-secret.yaml
+  - stripe-secret-key-secret.yaml

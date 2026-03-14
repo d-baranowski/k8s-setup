@@ -13,3 +13,5 @@ resources:
   - utro-cloudflare-tunnel-secret.yaml
   - utro-ingress.yaml
   - utro-cloudflare-statefulset.yaml
+  - payment-statefulset.yaml
+  - payment-service.yaml
