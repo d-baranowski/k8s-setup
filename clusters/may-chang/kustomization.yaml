@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - cert-manager
   - external-secrets-operator
+  - external-secrets-operator/resources
   - flux-system
   - kubernetes-sigs
   - n8n

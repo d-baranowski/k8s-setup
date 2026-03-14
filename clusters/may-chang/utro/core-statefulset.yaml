@@ -27,7 +27,7 @@ spec:
         env:
         - name: HEALTH_PORT
           value: "18007"
-        - name: API_PORT≤
+        - name: API_PORT
           value: "9102"
         - name: LOG_LEVEL
           value: "debug"
