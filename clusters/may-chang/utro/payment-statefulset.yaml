@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: utro-payment
+  namespace: default
+  labels:
+    app: utro-payment
+spec:
+  serviceName: utro-payment
+  replicas: 2
+  selector:
+    matchLabels:
+      app: utro-payment
+  template:
+    metadata:
+      labels:
+        app: utro-payment
+    spec:
+      containers:
+      - name: payment
+        image: docker.io/inspirationparticleltd/utro-payment:v0.0.1 # {"$imagepolicy": "flux-system:utro-payment"}
+        ports:
+        - containerPort: 9102
+          name: api
+        - containerPort: 18007
+          name: health
+        env:
+        - name: HEALTH_PORT
+          value: "18007"
+        - name: API_PORT≤
+          value: "9102"
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: RPG_PERMISSIONS_FLAG
+          value: "true"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_NAME
+          value: "utro"
+        - name: DB_HOST
+          value: "pg-op-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: password
+        - name: STRIPE_PUBLISHABLE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: stripe-publishable-key
+              key: value
+        - name: STRIPE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: stripe-secret-key
+              key: value
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: health
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: health
+          initialDelaySeconds: 60
+          periodSeconds: 5
