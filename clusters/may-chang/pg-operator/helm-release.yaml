@@ -21,6 +21,14 @@ spec:
     installCRDs: true
     enableJsonLogging: true
     enable_cross_namespace_secret: true
+    configLogicalBackup:
+      logical_backup_provider: s3
+      logical_backup_s3_bucket: utro-a253e7cf-backups
+      logical_backup_s3_bucket_prefix: spilo
+      logical_backup_s3_region: eu-central-1
+      logical_backup_s3_retention_time: 14 days
+      logical_backup_schedule: '30 02 * * *'
+      logical_backup_cronjob_environment_secret: postgres-backup-aws-creds
 
   # Ref: https://fluxcd.io/flux/components/helm/api/v2/#helm.toolkit.fluxcd.io/v2.Install
   install:

@@ -1,0 +1,23 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: postgres-backup-aws-creds
+  namespace: default
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: google-secrets
+  target:
+    name: postgres-backup-aws-creds
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: AWS_ACCESS_KEY_ID
+      remoteRef:
+        key: utro-a253e7cf-backups-aws-access-key-id
+        version: latest
+    - secretKey: AWS_SECRET_ACCESS_KEY
+      remoteRef:
+        key: utro-a253e7cf-backups-aws-secret-access-key
+        version: latest

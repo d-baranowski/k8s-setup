@@ -36,8 +36,26 @@ spec:
       - "hostssl all            utro_user        ::/0                   md5"
       - "hostssl all            n8n_user         ::/0                   md5"
 
+  env:
+    - name: WAL_S3_BUCKET
+      value: utro-a253e7cf-backups
+    - name: AWS_REGION
+      value: eu-central-1
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: postgres-backup-aws-creds
+          key: AWS_ACCESS_KEY_ID
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: postgres-backup-aws-creds
+          key: AWS_SECRET_ACCESS_KEY
+
   volume:
     size: 40Gi
+
+  enableLogicalBackup: true
 
   users:
     n8n_user: [CREATEROLE]

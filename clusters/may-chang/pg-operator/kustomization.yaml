@@ -4,6 +4,7 @@ resources:
   - helm-repo.yaml
   - helm-release.yaml
   - cluster.yaml
+  - postgres-backup-aws-creds.yaml
   - pgadmin.yaml
   - pg-admin-ingress.yaml
   - utro-a253e7cf-backups-aws-access-key-id.yaml

@@ -1,5 +1,13 @@
+// random_id is only created (and kept in state) when bucket_name is not supplied.
+// It generates an 8-hex-character suffix once and never changes it, unlike the
+// uuid() function which produces a new value on every plan and forces bucket replacement.
+resource "random_id" "bucket_suffix" {
+  count       = var.bucket_name == "" ? 1 : 0
+  byte_length = 4 # 4 bytes → 8 hex chars, e.g. "a253e7cf"
+}
+
 resource "aws_s3_bucket" "this" {
-  bucket = var.bucket_name != "" ? var.bucket_name : format("%s-%s-backups", var.name_prefix, substr(uuid(), 0, 8))
+  bucket = var.bucket_name != "" ? var.bucket_name : format("%s-%s-backups", var.name_prefix, random_id.bucket_suffix[0].hex)
 
   tags = var.tags
 }

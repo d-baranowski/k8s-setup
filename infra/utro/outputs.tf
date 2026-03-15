@@ -32,3 +32,9 @@ output "gcp_secret_access_key_name" {
   description = "GCP Secret Manager secret ID holding the AWS secret access key (empty if create_user = false)"
   value       = length(google_secret_manager_secret.aws_secret_access_key) > 0 ? google_secret_manager_secret.aws_secret_access_key[0].secret_id : ""
 }
+
+output "combined_external_secret_path" {
+  description = "Path of the generated combined ExternalSecret YAML (postgres-backup-aws-creds) written into the GitOps repo"
+  value       = var.create_user ? local_file.external_secret_combined_aws_creds[0].filename : ""
+}
+

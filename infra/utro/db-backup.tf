@@ -5,7 +5,7 @@ module "s3_backup" {
   source = "../modules/s3-backup"
 
   name_prefix       = "utro"
-  bucket_name       = "" # leave empty to auto-generate or provide a stable name
+  bucket_name       = "utro-a253e7cf-backups"
   enable_versioning = true
   lifecycle_rules   = []
   tags              = var.tags
