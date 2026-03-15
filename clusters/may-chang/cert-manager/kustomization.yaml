@@ -5,4 +5,5 @@ resources:
   - helmrepo-jetstack.yaml
   - helmrelease-cert-manager.yaml
   - clusterissuer-selfsigned.yaml
+  - clusterissuer-acme.yaml
   - certificate-n8n.yaml

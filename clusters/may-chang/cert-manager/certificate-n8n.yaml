@@ -9,7 +9,7 @@ spec:
     - n8n.local
   commonName: n8n.local
   issuerRef:
-    name: letsencrypt-http
+    name: selfsigned-issuer
     kind: ClusterIssuer
   duration: 2160h
   renewBefore: 360h
