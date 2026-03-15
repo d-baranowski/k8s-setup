@@ -6,3 +6,5 @@ resources:
   - cluster.yaml
   - pgadmin.yaml
   - pg-admin-ingress.yaml
+  - utro-a253e7cf-backups-aws-access-key-id.yaml
+  - utro-a253e7cf-backups-aws-secret-access-key.yaml

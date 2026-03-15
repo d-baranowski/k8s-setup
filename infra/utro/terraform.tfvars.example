@@ -1,0 +1,29 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit real credentials.
+
+aws_region  = "us-east-1"
+aws_profile = "default"
+
+# Remote state (leave empty to use local state)
+s3_backend_bucket = ""
+s3_backend_key    = "utro/terraform.tfstate"
+dynamodb_table    = ""
+
+# GCP
+gcp_project_id = "your-gcp-project-id"
+
+# Set to true to create an IAM user and push its access keys to GCP Secret Manager
+create_user = false
+
+# Path to write generated ExternalSecret YAML files into (e.g. your GitOps cluster folder)
+# Accepts absolute (/home/user/...) or relative (../../clusters/may-chang/pg-operator) paths.
+# Relative paths are resolved from the infra/utro directory (where you run terraform).
+external_secrets_output_path  = "../../clusters/may-chang/pg-operator"
+external_secrets_namespace    = "default"
+cluster_secret_store_name     = "google-secrets"
+
+tags = {
+  owner = "utro"
+  env   = "dev"
+}
+

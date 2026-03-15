@@ -1,0 +1,19 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: utro-a253e7cf-backups-aws-access-key-id
+  namespace: default
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: google-secrets
+  target:
+    name: utro-a253e7cf-backups-aws-access-key-id
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: value
+      remoteRef:
+        key: utro-a253e7cf-backups-aws-access-key-id
+        version: latest
