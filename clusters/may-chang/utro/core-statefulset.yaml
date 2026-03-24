@@ -18,13 +18,17 @@ spec:
     spec:
       containers:
       - name: core
-        image: docker.io/inspirationparticleltd/utro-core:v0.0.17 # {"$imagepolicy": "flux-system:utro-core"}
+        image: docker.io/inspirationparticleltd/utro-core:v0.0.18 # {"$imagepolicy": "flux-system:utro-core"}
         ports:
         - containerPort: 9102
           name: api
         - containerPort: 18007
           name: health
         env:
+        - name: PAYMENT_SERVICE_URL
+          value: "http://utro-payment.default.svc.cluster.local:9102"
+        - name: PAYMENT_SERVICE_CLIENT_TIMEOUT_MS
+          value: 10000
         - name: HEALTH_PORT
           value: "18007"
         - name: API_PORT
