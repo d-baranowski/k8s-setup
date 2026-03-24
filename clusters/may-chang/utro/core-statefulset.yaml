@@ -28,7 +28,7 @@ spec:
         - name: PAYMENT_SERVICE_URL
           value: "http://utro-payment.default.svc.cluster.local:9102"
         - name: PAYMENT_SERVICE_CLIENT_TIMEOUT_MS
-          value: 10000
+          value: "10000"
         - name: HEALTH_PORT
           value: "18007"
         - name: API_PORT
