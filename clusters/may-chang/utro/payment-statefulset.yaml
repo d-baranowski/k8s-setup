@@ -25,6 +25,8 @@ spec:
         - containerPort: 18007
           name: health
         env:
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
         - name: HEALTH_PORT
           value: "18007"
         - name: API_PORT
