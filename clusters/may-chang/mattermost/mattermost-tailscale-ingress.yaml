@@ -1,3 +1,24 @@
+# Non-headless service for the Tailscale ingress.
+# The Mattermost operator creates a headless service (clusterIP: None) which
+# the Tailscale ingress controller cannot route to. This service selects the
+# same pods but gets a real ClusterIP.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mattermost-tailscale-svc
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: mattermost
+    installation.mattermost.com/installation: mattermost
+    installation.mattermost.com/resource: mattermost
+  ports:
+    - name: app
+      port: 8065
+      targetPort: app
+      protocol: TCP
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -7,7 +28,7 @@ spec:
   ingressClassName: tailscale
   defaultBackend:
     service:
-      name: mattermost
+      name: mattermost-tailscale-svc
       port:
         number: 8065
   tls:
