@@ -1,10 +1,8 @@
-# Expose Mattermost over Tailscale using an Ingress.
-# The Tailscale operator provisions a proxy that terminates TLS (via Let's
-# Encrypt certs for the tailnet FQDN) and forwards plain HTTP to the backend.
+# Non-headless ClusterIP Service for Mattermost pods.
 #
 # The Mattermost operator creates a headless service (clusterIP: None) which
-# the Tailscale Ingress cannot route to, so we create our own ClusterIP
-# service selecting the same pods.
+# cannot be used by nginx's upstream directive. This service provides a stable
+# ClusterIP endpoint for the nginx reverse proxy to forward traffic to.
 ---
 apiVersion: v1
 kind: Service
@@ -22,21 +20,3 @@ spec:
       port: 8065
       targetPort: app
       protocol: TCP
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: mattermost-tailscale
-  namespace: default
-  annotations:
-    tailscale.com/hostname: "mattermost"
-spec:
-  ingressClassName: tailscale
-  defaultBackend:
-    service:
-      name: mattermost-tailscale-svc
-      port:
-        number: 8065
-  tls:
-    - hosts:
-        - mattermost.folk-saiph.ts.net

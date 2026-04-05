@@ -1,0 +1,128 @@
+# CronJob that extracts a real Let's Encrypt TLS certificate from the Tailscale
+# LoadBalancer proxy pod and stores it in the mattermost-tls-cert K8s Secret.
+#
+# How it works:
+#   1. Finds the Tailscale LB proxy pod by label (tailscale.com/parent-resource=mattermost-ts-lb)
+#   2. Execs into the pod and runs `tailscale cert` to get a valid LE cert
+#   3. Patches the mattermost-tls-cert secret with the real cert + key
+#   4. Restarts the nginx deployment to pick up the new cert
+#
+# The proxy pod owns the hostname mattermost.folk-saiph.ts.net on the tailnet,
+# so `tailscale cert` inside that pod can obtain a cert for that FQDN.
+#
+# Schedule: every 12 hours (LE certs via Tailscale have 90-day validity).
+# Also runs once at deploy via the initial Job annotation.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mattermost-cert-sync
+  namespace: default
+---
+# ClusterRole because the proxy pod is in tailscale namespace,
+# while the secret is in default namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mattermost-cert-sync
+rules:
+  # List and exec into pods in tailscale namespace
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "get"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  # Update secrets in default namespace
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "patch"]
+  # Restart deployments
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mattermost-cert-sync
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mattermost-cert-sync
+subjects:
+  - kind: ServiceAccount
+    name: mattermost-cert-sync
+    namespace: default
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mattermost-cert-sync
+  namespace: default
+spec:
+  schedule: "0 */12 * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        spec:
+          serviceAccountName: mattermost-cert-sync
+          restartPolicy: OnFailure
+          containers:
+            - name: cert-sync
+              image: dtzar/helm-kubectl:3.19.1
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -euo pipefail
+
+                  DOMAIN="mattermost.folk-saiph.ts.net"
+                  TS_NAMESPACE="tailscale"
+                  SECRET_NAME="mattermost-tls-cert"
+                  SECRET_NAMESPACE="default"
+                  NGINX_DEPLOY="mattermost-nginx-proxy"
+
+                  echo "Finding Tailscale LB proxy pod..."
+                  POD=$(kubectl get pods -n "$TS_NAMESPACE" \
+                    -l "tailscale.com/parent-resource=mattermost-ts-lb" \
+                    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+                  if [ -z "$POD" ]; then
+                    echo "ERROR: Could not find Tailscale LB proxy pod"
+                    echo "Available pods in $TS_NAMESPACE:"
+                    kubectl get pods -n "$TS_NAMESPACE" --show-labels
+                    exit 1
+                  fi
+                  echo "Found proxy pod: $POD"
+
+                  echo "Requesting certificate for $DOMAIN..."
+                  CERT=$(kubectl exec -n "$TS_NAMESPACE" "$POD" -- \
+                    tailscale cert --cert-file /dev/stdout --key-file /dev/null "$DOMAIN" 2>/dev/null)
+
+                  KEY=$(kubectl exec -n "$TS_NAMESPACE" "$POD" -- \
+                    tailscale cert --cert-file /dev/null --key-file /dev/stdout "$DOMAIN" 2>/dev/null)
+
+                  if [ -z "$CERT" ] || [ -z "$KEY" ]; then
+                    echo "ERROR: Failed to obtain certificate or key"
+                    exit 1
+                  fi
+                  echo "Certificate obtained successfully"
+
+                  # Base64 encode for the secret patch
+                  CERT_B64=$(echo "$CERT" | base64 | tr -d '\n')
+                  KEY_B64=$(echo "$KEY" | base64 | tr -d '\n')
+
+                  echo "Patching secret $SECRET_NAME in $SECRET_NAMESPACE..."
+                  kubectl patch secret "$SECRET_NAME" -n "$SECRET_NAMESPACE" \
+                    --type='merge' \
+                    -p "{\"data\":{\"tls.crt\":\"$CERT_B64\",\"tls.key\":\"$KEY_B64\"}}"
+
+                  echo "Restarting nginx deployment to pick up new cert..."
+                  kubectl rollout restart deployment/"$NGINX_DEPLOY" -n "$SECRET_NAMESPACE"
+                  kubectl rollout status deployment/"$NGINX_DEPLOY" -n "$SECRET_NAMESPACE" --timeout=60s
+
+                  echo "Certificate sync complete for $DOMAIN"

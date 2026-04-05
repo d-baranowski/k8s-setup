@@ -1,0 +1,195 @@
+# nginx TLS-terminating reverse proxy for Mattermost, fronted by a Tailscale
+# LoadBalancer Service (kernel networking) for fast WireGuard throughput.
+#
+# Architecture:
+#   Client → Tailscale LB (kernel nftables, port 443) → nginx (TLS termination)
+#     → mattermost-tailscale-svc:8065 (plain HTTP)
+#
+# TLS cert flow:
+#   1. cert-manager creates a self-signed bootstrap cert so nginx can start
+#   2. A CronJob periodically execs into the Tailscale LB proxy pod and runs
+#      `tailscale cert` to get a real Let's Encrypt cert for the tailnet FQDN
+#   3. The CronJob overwrites the K8s TLS secret with the real cert
+#   4. nginx reloads on cert change (inotifyd sidecar sends SIGHUP)
+---
+# Bootstrap self-signed cert so nginx can start before the CronJob runs.
+# cert-manager will create the TLS secret 'mattermost-tls-cert'.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mattermost-tls-bootstrap
+  namespace: default
+spec:
+  secretName: mattermost-tls-cert
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - mattermost.folk-saiph.ts.net
+  duration: 87600h # 10 years — will be overwritten by real cert
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mattermost-nginx-config
+  namespace: default
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /var/log/nginx/error.log warn;
+    pid /tmp/nginx.pid;
+
+    events {
+      worker_connections 1024;
+    }
+
+    http {
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+      sendfile on;
+      keepalive_timeout 65;
+      client_max_body_size 100M;
+
+      # Logging
+      access_log /var/log/nginx/access.log;
+
+      # Upstream Mattermost
+      upstream mattermost {
+        server mattermost-tailscale-svc.default.svc.cluster.local:8065;
+        keepalive 32;
+      }
+
+      # HTTPS server
+      server {
+        listen 443 ssl;
+        server_name mattermost.folk-saiph.ts.net;
+
+        ssl_certificate /etc/nginx/tls/tls.crt;
+        ssl_certificate_key /etc/nginx/tls/tls.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
+
+        # Mattermost WebSocket
+        location ~ /api/v[0-9]+/(users/)?websocket$ {
+          proxy_pass http://mattermost;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "upgrade";
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_set_header X-Frame-Options SAMEORIGIN;
+          proxy_read_timeout 600s;
+          proxy_send_timeout 600s;
+        }
+
+        # All other requests
+        location / {
+          proxy_pass http://mattermost;
+          proxy_http_version 1.1;
+          proxy_set_header Connection "";
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_set_header X-Frame-Options SAMEORIGIN;
+          proxy_read_timeout 600s;
+          proxy_send_timeout 600s;
+          proxy_buffers 16 16k;
+          proxy_buffer_size 16k;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mattermost-nginx-proxy
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mattermost-nginx-proxy
+  template:
+    metadata:
+      labels:
+        app: mattermost-nginx-proxy
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27.4-alpine
+          ports:
+            - name: https
+              containerPort: 443
+              protocol: TCP
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: tls-cert
+              mountPath: /etc/nginx/tls
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            tcpSocket:
+              port: 443
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 443
+            initialDelaySeconds: 2
+            periodSeconds: 5
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: mattermost-nginx-config
+        - name: tls-cert
+          secret:
+            secretName: mattermost-tls-cert
+---
+# ClusterIP Service for nginx — the Tailscale LB forwards to this.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mattermost-nginx-proxy
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: mattermost-nginx-proxy
+  ports:
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP
+---
+# Tailscale LoadBalancer Service — kernel networking, fast WireGuard tunnel.
+# Forwards port 443 to the nginx ClusterIP service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mattermost-ts-lb
+  namespace: default
+  annotations:
+    tailscale.com/hostname: "mattermost"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  selector:
+    app: mattermost-nginx-proxy
+  ports:
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP

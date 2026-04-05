@@ -5,3 +5,5 @@ resources:
   - mattermost-filestore-secret.yaml
   - mattermost-installation.yaml
   - mattermost-tailscale-ingress.yaml
+  - mattermost-nginx-proxy.yaml
+  - mattermost-cert-sync.yaml
