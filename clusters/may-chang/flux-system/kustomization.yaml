@@ -13,4 +13,5 @@ resources:
 - utro-kustomization.yaml
 - n8n-kustomization.yaml
 - tailscale-operator-kustomization.yaml
+- mattermost-operator-kustomization.yaml
 - mattermost-kustomization.yaml

@@ -5,6 +5,8 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
+    - name: mattermost-operator
+      namespace: flux-system
     - name: pg-operator
       namespace: flux-system
     - name: external-secrets-resources
