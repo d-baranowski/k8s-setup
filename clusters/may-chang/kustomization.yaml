@@ -6,7 +6,6 @@ resources:
   - external-secrets-operator/resources
   - flux-system
   - kubernetes-sigs
-  - mattermost
   - n8n
   - nginx-ingress
   - openebs
