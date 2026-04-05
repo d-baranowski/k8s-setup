@@ -19,6 +19,8 @@ spec:
       bucket: mattermost-filestore
       secret: mattermost-filestore-secret
   mattermostEnv:
+    - name: MM_SERVICESETTINGS_SITEURL
+      value: "https://mattermost.folk-saiph.ts.net"
     - name: MM_FILESETTINGS_AMAZONS3BUCKET
       valueFrom:
         secretKeyRef:
