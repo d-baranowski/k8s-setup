@@ -19,22 +19,27 @@ spec:
       - "local   all             postgres                                md5"
       - "local   all             utro_user                               md5"
       - "local   all             n8n_user                                md5"
+      - "local   all             mattermost_user                         md5"
 
       # ANY host, no-SSL explicitly allowed (matches: no encryption)
       - "hostnossl all           postgres         0.0.0.0/0              md5"
       - "hostnossl all           utro_user        0.0.0.0/0              md5"
       - "hostnossl all           n8n_user         0.0.0.0/0              md5"
+      - "hostnossl all           mattermost_user  0.0.0.0/0              md5"
       - "hostnossl all           postgres         ::/0                   md5"
       - "hostnossl all           utro_user        ::/0                   md5"
       - "hostnossl all           n8n_user         ::/0                   md5"
+      - "hostnossl all           mattermost_user  ::/0                   md5"
 
       # ANY host, SSL also allowed
       - "hostssl all            postgres         0.0.0.0/0              md5"
       - "hostssl all            utro_user        0.0.0.0/0              md5"
       - "hostssl all            n8n_user         0.0.0.0/0              md5"
+      - "hostssl all            mattermost_user  0.0.0.0/0              md5"
       - "hostssl all            postgres         ::/0                   md5"
       - "hostssl all            utro_user        ::/0                   md5"
       - "hostssl all            n8n_user         ::/0                   md5"
+      - "hostssl all            mattermost_user  ::/0                   md5"
 
   env:
     - name: WAL_S3_BUCKET
@@ -60,7 +65,9 @@ spec:
   users:
     n8n_user: [CREATEROLE]
     utro_user: [CREATEROLE]
+    mattermost_user: [CREATEROLE]
 
   databases:
     n8n: n8n_user
     utro: utro_user
+    mattermost: mattermost_user
