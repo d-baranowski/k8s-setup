@@ -1,29 +1,42 @@
-# Expose Mattermost over Tailscale using a LoadBalancer Service.
-# The Tailscale operator provisions a proxy that forwards traffic from the
-# tailnet to the backend service. This is more reliable than the Ingress
-# approach because it operates at the TCP level.
+# Expose Mattermost over Tailscale using an Ingress.
+# The Tailscale operator provisions a proxy that terminates TLS (via Let's
+# Encrypt certs for the tailnet FQDN) and forwards plain HTTP to the backend.
 #
 # The Mattermost operator creates a headless service (clusterIP: None) which
-# the Tailscale operator cannot use, so we create our own ClusterIP service
-# selecting the same pods as a target for the LoadBalancer.
+# the Tailscale Ingress cannot route to, so we create our own ClusterIP
+# service selecting the same pods.
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: mattermost-tailscale
+  name: mattermost-tailscale-svc
   namespace: default
-  annotations:
-    tailscale.com/expose: "true"
-    tailscale.com/hostname: "mattermost"
-    tailscale.com/https: "true"
 spec:
-  type: LoadBalancer
-  loadBalancerClass: tailscale
+  type: ClusterIP
   selector:
     app: mattermost
     installation.mattermost.com/installation: mattermost
     installation.mattermost.com/resource: mattermost
   ports:
-    - name: app
-      port: 443
+    - name: http
+      port: 8065
       targetPort: app
       protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mattermost-tailscale
+  namespace: default
+  annotations:
+    tailscale.com/hostname: "mattermost"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: mattermost-tailscale-svc
+      port:
+        number: 8065
+  tls:
+    - hosts:
+        - mattermost.folk-saiph.ts.net
