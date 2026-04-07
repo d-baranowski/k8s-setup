@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: payment
-        image: docker.io/inspirationparticleltd/utro-payment:v0.0.4 # {"$imagepolicy": "flux-system:utro-payment"}
+        image: docker.io/inspirationparticleltd/utro-payment:v0.0.5 # {"$imagepolicy": "flux-system:utro-payment"}
         ports:
         - containerPort: 9102
           name: api
