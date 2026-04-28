@@ -8,6 +8,7 @@ resources:
   - gateway-service.yaml
   - core-statefulset.yaml
   - core-service.yaml
+  - core-migrate-job.yaml
   - ui-statefulset.yaml
   - ui-service.yaml
   - utro-cloudflare-tunnel-secret.yaml
@@ -15,3 +16,4 @@ resources:
   - utro-cloudflare-statefulset.yaml
   - payment-statefulset.yaml
   - payment-service.yaml
+  - payment-migrate-job.yaml

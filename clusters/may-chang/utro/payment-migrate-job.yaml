@@ -1,0 +1,66 @@
+# One-shot DB migration Job for the payment service.
+#
+# Mirrors CI's `payment-migrate` service in
+# utro/tools/e2e-test/docker-compose.yml:
+#   entrypoint: ["/app/payment"]
+#   command: ["-migrate=true"]
+#
+# Why this differs from core-migrate-job's MIGRATE env-var trigger:
+# payment's main() only honours the `-migrate=true` CLI flag (no MIGRATE
+# env-var fallback). The image's default ENTRYPOINT wraps the binary in
+# `/bin/sh -c /app/payment` which can't accept a positional arg, so we
+# override `command` to invoke the binary directly with the flag as an arg.
+#
+# Same Flux-driven re-run-on-image-change semantics as core-migrate-job:
+# the image ref carries the `$imagepolicy` annotation, and the
+# `kustomize.toolkit.fluxcd.io/force: enabled` annotation tells the
+# kustomize-controller to delete+recreate when the immutable pod template
+# changes.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: utro-payment-migrate
+  namespace: default
+  labels:
+    app: utro-payment-migrate
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: utro-payment-migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrate
+        image: ghcr.io/inspiration-particle/utro-payment:0.1.1 # {"$imagepolicy": "flux-system:utro-payment"}
+        # Bypass the image's `/bin/sh -c /app/payment` ENTRYPOINT so the
+        # `-migrate=true` flag reaches the Go binary directly.
+        command: ["/app/payment"]
+        args: ["-migrate=true"]
+        env:
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_NAME
+          value: "utro"
+        - name: DB_HOST
+          value: "pg-op-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: password

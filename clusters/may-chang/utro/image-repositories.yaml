@@ -4,8 +4,13 @@ metadata:
   name: utro-core
   namespace: flux-system
 spec:
-  image: docker.io/inspirationparticleltd/utro-core
+  image: ghcr.io/inspiration-particle/utro-core
   interval: 5m0s
+  # GHCR private packages — Flux needs k8s-side creds to list tags. The
+  # node-level containerd auth (NixOS-managed registries.yaml) handles pod
+  # pulls, but it isn't visible to the Flux source-controller pod.
+  secretRef:
+    name: ghcr-pull-secret
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
@@ -13,8 +18,10 @@ metadata:
   name: utro-gateway
   namespace: flux-system
 spec:
-  image: docker.io/inspirationparticleltd/utro-gateway
+  image: ghcr.io/inspiration-particle/utro-gateway
   interval: 5m0s
+  secretRef:
+    name: ghcr-pull-secret
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
@@ -22,5 +29,18 @@ metadata:
   name: utro-ui
   namespace: flux-system
 spec:
-  image: docker.io/inspirationparticleltd/utro-ui
+  image: ghcr.io/inspiration-particle/utro-ui
   interval: 5m0s
+  secretRef:
+    name: ghcr-pull-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: utro-payment
+  namespace: flux-system
+spec:
+  image: ghcr.io/inspiration-particle/utro-payment
+  interval: 5m0s
+  secretRef:
+    name: ghcr-pull-secret

@@ -1,0 +1,68 @@
+# One-shot DB migration Job for the core service.
+#
+# Mirrors the CI behaviour from utro/tools/e2e-test/docker-compose.yml's
+# `migrate` service: same image as the running container, with `MIGRATE=true`
+# in the env. The binary's main() reads MIGRATE, runs goose against
+# app/core/db/*.sql, then exits — no API server is started.
+#
+# Production runs migrations only — no bootstrap step (bootstrap is the
+# CI-only seed-data path).
+#
+# Re-runs every time the image tag changes:
+#   - Image ref carries the same `$imagepolicy` annotation as the StatefulSet,
+#     so Flux's image-update-automation rewrites it whenever a newer tag
+#     matches the ImagePolicy.
+#   - `kustomize.toolkit.fluxcd.io/force: enabled` annotation tells the Flux
+#     kustomize-controller to delete-and-recreate this Job when its template
+#     changes (Job pod template fields are immutable, so a plain apply would
+#     fail otherwise).
+#   - Goose acquires an advisory lock per-DB before running, so concurrent
+#     starts during a rolling restart are safe.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: utro-core-migrate
+  namespace: default
+  labels:
+    app: utro-core-migrate
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  # Auto-clean 24h after success so `kubectl get jobs` doesn't fill up over
+  # time. Failures stick around so they're visible for triage.
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: utro-core-migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrate
+        image: ghcr.io/inspiration-particle/utro-core:0.1.1 # {"$imagepolicy": "flux-system:utro-core"}
+        env:
+        - name: MIGRATE
+          value: "true"
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_NAME
+          value: "utro"
+        - name: DB_HOST
+          value: "pg-op-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: password
