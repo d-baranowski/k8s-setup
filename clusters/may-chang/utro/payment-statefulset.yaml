@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: payment
-        image: ghcr.io/inspiration-particle/utro-payment:0.1.1 # {"$imagepolicy": "flux-system:utro-payment"}
+        image: ghcr.io/inspiration-particle/utro-payment:0.1.5 # {"$imagepolicy": "flux-system:utro-payment"}
         ports:
         - containerPort: 9102
           name: api
