@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: ui
-        image: ghcr.io/inspiration-particle/utro-ui:0.1.5 # {"$imagepolicy": "flux-system:utro-ui"}
+        image: ghcr.io/inspiration-particle/utro-ui:0.1.6 # {"$imagepolicy": "flux-system:utro-ui"}
         ports:
         - containerPort: 3000
           name: http
