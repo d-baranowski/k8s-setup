@@ -1,0 +1,112 @@
+# CronJob that pulls a real Let's Encrypt cert from the Tailscale LB proxy pod
+# and stores it in grafana-tls-cert. Mirrors mattermost-cert-sync.yaml.
+#
+# Schedule: every 12h. The bootstrap selfsigned cert (in grafana-nginx-proxy.yaml)
+# lets nginx come up before this job has run for the first time.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-cert-sync
+  namespace: observability
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: grafana-cert-sync
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "get"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: grafana-cert-sync
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: grafana-cert-sync
+subjects:
+  - kind: ServiceAccount
+    name: grafana-cert-sync
+    namespace: observability
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: grafana-cert-sync
+  namespace: observability
+spec:
+  schedule: "0 */12 * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        spec:
+          serviceAccountName: grafana-cert-sync
+          restartPolicy: OnFailure
+          containers:
+            - name: cert-sync
+              image: dtzar/helm-kubectl:3.19.1
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -euo pipefail
+
+                  DOMAIN="grafana.folk-saiph.ts.net"
+                  TS_NAMESPACE="tailscale"
+                  SECRET_NAME="grafana-tls-cert"
+                  SECRET_NAMESPACE="observability"
+                  NGINX_DEPLOY="grafana-nginx-proxy"
+
+                  echo "Finding Tailscale LB proxy pod..."
+                  POD=$(kubectl get pods -n "$TS_NAMESPACE" \
+                    -l "tailscale.com/parent-resource=grafana-ts-lb" \
+                    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+                  if [ -z "$POD" ]; then
+                    echo "ERROR: Could not find Tailscale LB proxy pod"
+                    kubectl get pods -n "$TS_NAMESPACE" --show-labels
+                    exit 1
+                  fi
+                  echo "Found proxy pod: $POD"
+
+                  echo "Requesting certificate for $DOMAIN..."
+                  CERT=$(kubectl exec -n "$TS_NAMESPACE" "$POD" -- \
+                    tailscale cert --cert-file /dev/stdout --key-file /dev/null "$DOMAIN" 2>/dev/null)
+
+                  KEY=$(kubectl exec -n "$TS_NAMESPACE" "$POD" -- \
+                    tailscale cert --cert-file /dev/null --key-file /dev/stdout "$DOMAIN" 2>/dev/null)
+
+                  if [ -z "$CERT" ] || [ -z "$KEY" ]; then
+                    echo "ERROR: Failed to obtain certificate or key"
+                    exit 1
+                  fi
+                  echo "Certificate obtained successfully"
+
+                  CERT_B64=$(echo "$CERT" | base64 | tr -d '\n')
+                  KEY_B64=$(echo "$KEY" | base64 | tr -d '\n')
+
+                  echo "Patching secret $SECRET_NAME in $SECRET_NAMESPACE..."
+                  kubectl patch secret "$SECRET_NAME" -n "$SECRET_NAMESPACE" \
+                    --type='merge' \
+                    -p "{\"data\":{\"tls.crt\":\"$CERT_B64\",\"tls.key\":\"$KEY_B64\"}}"
+
+                  echo "Restarting nginx deployment to pick up new cert..."
+                  kubectl rollout restart deployment/"$NGINX_DEPLOY" -n "$SECRET_NAMESPACE"
+                  kubectl rollout status deployment/"$NGINX_DEPLOY" -n "$SECRET_NAMESPACE" --timeout=60s
+
+                  echo "Certificate sync complete for $DOMAIN"

@@ -1,0 +1,181 @@
+# Tailscale exposure for Grafana. Mirrors the Mattermost pattern:
+#   Client → Tailscale LB (kernel nftables, port 443) → nginx (TLS termination)
+#     → grafana-service:3000 (plain HTTP)
+#
+# TLS cert flow (see grafana-cert-sync.yaml):
+#   1. cert-manager creates a self-signed bootstrap cert so nginx can start.
+#   2. A CronJob execs into the Tailscale LB proxy pod and runs `tailscale
+#      cert` to obtain a real Let's Encrypt cert for the tailnet FQDN.
+#   3. The CronJob overwrites the K8s TLS secret with the real cert and
+#      restarts the nginx Deployment.
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grafana-tls-bootstrap
+  namespace: observability
+spec:
+  secretName: grafana-tls-cert
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - grafana.folk-saiph.ts.net
+  duration: 87600h
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-nginx-config
+  namespace: observability
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /var/log/nginx/error.log warn;
+    pid /tmp/nginx.pid;
+
+    events {
+      worker_connections 1024;
+    }
+
+    http {
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+      sendfile on;
+      keepalive_timeout 65;
+      client_max_body_size 16M;
+      access_log /var/log/nginx/access.log;
+
+      upstream grafana {
+        server grafana-service.observability.svc.cluster.local:3000;
+        keepalive 32;
+      }
+
+      server {
+        listen 443 ssl;
+        server_name grafana.folk-saiph.ts.net;
+
+        ssl_certificate /etc/nginx/tls/tls.crt;
+        ssl_certificate_key /etc/nginx/tls/tls.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
+
+        # Grafana Live (WebSocket)
+        location /api/live/ {
+          proxy_pass http://grafana;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "upgrade";
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_read_timeout 3600s;
+          proxy_send_timeout 3600s;
+        }
+
+        location / {
+          proxy_pass http://grafana;
+          proxy_http_version 1.1;
+          proxy_set_header Connection "";
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_read_timeout 600s;
+          proxy_send_timeout 600s;
+          proxy_buffers 16 16k;
+          proxy_buffer_size 16k;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-nginx-proxy
+  namespace: observability
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana-nginx-proxy
+  template:
+    metadata:
+      labels:
+        app: grafana-nginx-proxy
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27.4-alpine
+          ports:
+            - name: https
+              containerPort: 443
+              protocol: TCP
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: tls-cert
+              mountPath: /etc/nginx/tls
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            tcpSocket:
+              port: 443
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 443
+            initialDelaySeconds: 2
+            periodSeconds: 5
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: grafana-nginx-config
+        - name: tls-cert
+          secret:
+            secretName: grafana-tls-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-nginx-proxy
+  namespace: observability
+spec:
+  type: ClusterIP
+  selector:
+    app: grafana-nginx-proxy
+  ports:
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP
+---
+# Tailscale LoadBalancer Service — kernel WireGuard, forwards 443 to nginx.
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-ts-lb
+  namespace: observability
+  annotations:
+    tailscale.com/hostname: "grafana"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  selector:
+    app: grafana-nginx-proxy
+  ports:
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP

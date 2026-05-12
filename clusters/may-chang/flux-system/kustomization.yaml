@@ -15,3 +15,4 @@ resources:
 - tailscale-operator-kustomization.yaml
 - mattermost-operator-kustomization.yaml
 - mattermost-kustomization.yaml
+- observability-kustomization.yaml
