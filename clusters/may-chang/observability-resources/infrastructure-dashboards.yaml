@@ -1,0 +1,79 @@
+# Host + cluster resource dashboards pulled from grafana.com via the operator.
+# Using grafanaCom.id avoids vendoring large dashboard JSON blobs into the repo.
+#
+# Dashboards rely on metrics emitted by:
+#   - node-exporter (DaemonSet, installed by kube-prometheus-stack)
+#   - kube-state-metrics (Deployment, installed by kube-prometheus-stack)
+#   - the kubelet/cAdvisor scrape targets the chart wires up
+#
+# All three need the `cluster` external label, which is set on Prometheus via
+# clusters/may-chang/observability/helmrelease-kube-prometheus-stack.yaml.
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: infrastructure-folder
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "grafana"
+  title: Infrastructure
+---
+# Canonical node-exporter dashboard. Host-level CPU / memory / disk / network /
+# file descriptors / per-CPU breakdowns / systemd. ~30 panels, well maintained.
+# https://grafana.com/grafana/dashboards/1860
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: node-exporter-full
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "grafana"
+  folderRef: infrastructure-folder
+  resyncPeriod: 5m
+  grafanaCom:
+    id: 1860
+  datasources:
+    - inputName: DS_PROMETHEUS
+      datasourceName: prometheus
+---
+# Cluster-wide rollup: CPU/mem/pod count/PVCs across all nodes.
+# https://grafana.com/grafana/dashboards/15757
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: k8s-views-global
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "grafana"
+  folderRef: infrastructure-folder
+  resyncPeriod: 5m
+  grafanaCom:
+    id: 15757
+  datasources:
+    - inputName: DS_PROMETHEUS
+      datasourceName: prometheus
+---
+# Per-node breakdown: CPU/mem requests vs usage, pod density, conditions.
+# https://grafana.com/grafana/dashboards/15759
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: k8s-views-nodes
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "grafana"
+  folderRef: infrastructure-folder
+  resyncPeriod: 5m
+  grafanaCom:
+    id: 15759
+  datasources:
+    - inputName: DS_PROMETHEUS
+      datasourceName: prometheus
