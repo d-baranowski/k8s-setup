@@ -45,6 +45,8 @@ spec:
           value: "tempo.observability.svc.cluster.local:4318"
         - name: TR_HTTPS
           value: "false"
+        - name: DB_TRACE
+          value: "true"
         - name: DB_SSL
           value: "true"
         - name: DB_NAME
