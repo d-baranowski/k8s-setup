@@ -4,8 +4,8 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": {
-          "type": "datasource",
+        "prometheus": {
+          "type": "prometheus",
           "uid": "grafana"
         },
         "enable": true,
@@ -21,8 +21,8 @@
         "type": "dashboard"
       },
       {
-        "datasource": {
-          "type": "datasource",
+        "prometheus": {
+          "type": "prometheus",
           "uid": "grafana"
         },
         "enable": true,
@@ -39,8 +39,8 @@
         }
       },
       {
-        "datasource": {
-          "type": "datasource",
+        "prometheus": {
+          "type": "prometheus",
           "uid": "grafana"
         },
         "enable": true,
@@ -67,9 +67,9 @@
   "panels": [
     {
       "collapsed": false,
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "gridPos": {
         "h": 1,
@@ -83,9 +83,9 @@
       "type": "row"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -140,9 +140,9 @@
       "pluginVersion": "11.2.0",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": false,
           "expr": "avg(sum by (cpu) (rate(node_cpu_seconds_total{mode!~\"idle|iowait|steal\", instance=\"$instance\"}[$__rate_interval])))",
@@ -156,9 +156,9 @@
       "type": "gauge"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -213,9 +213,9 @@
       "pluginVersion": "11.2.0",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": false,
           "expr": "sum(node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}) / sum(node_memory_MemTotal_bytes{instance=\"$instance\"})",
@@ -229,9 +229,9 @@
       "type": "gauge"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -277,9 +277,9 @@
       "pluginVersion": "11.2.0",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "sum(kube_pod_info{node=\"$node\"})",
@@ -292,9 +292,9 @@
       "type": "stat"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -416,9 +416,9 @@
       "pluginVersion": "11.2.0",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "kube_pod_info{node=\"$node\"}",
@@ -515,9 +515,9 @@
       "type": "table"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -565,9 +565,9 @@
       "pluginVersion": "11.2.0",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": false,
           "expr": "sum(rate(node_cpu_seconds_total{mode!~\"idle|iowait|steal\", instance=\"$instance\"}[$__rate_interval]))",
@@ -581,9 +581,9 @@
       "type": "stat"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -630,9 +630,9 @@
       "pluginVersion": "11.2.0",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "sum(machine_cpu_cores{node=\"$node\"})",
@@ -645,9 +645,9 @@
       "type": "stat"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -694,9 +694,9 @@
       "pluginVersion": "11.2.0",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": false,
           "expr": "sum(node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"})",
@@ -710,9 +710,9 @@
       "type": "stat"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -759,9 +759,9 @@
       "pluginVersion": "11.2.0",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "sum(machine_memory_bytes{node=\"$node\"})",
@@ -775,9 +775,9 @@
       "type": "stat"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -832,9 +832,9 @@
       "pluginVersion": "11.2.0",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "sum(node_time_seconds{instance=\"$instance\"} - node_boot_time_seconds{instance=\"$instance\"})",
@@ -849,9 +849,9 @@
     },
     {
       "collapsed": false,
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "gridPos": {
         "h": 1,
@@ -865,9 +865,9 @@
       "type": "row"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -950,9 +950,9 @@
       },
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "avg(rate(node_cpu_seconds_total{instance=\"$instance\"}[$__rate_interval]) * 100) by (mode)",
@@ -967,9 +967,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1051,9 +1051,9 @@
       },
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemFree_bytes{instance=\"$instance\"} - (node_memory_Cached_bytes{instance=\"$instance\"} + node_memory_Buffers_bytes{instance=\"$instance\"})",
@@ -1063,9 +1063,9 @@
           "refId": "A"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "node_memory_MemTotal_bytes{instance=\"$instance\"}",
@@ -1075,9 +1075,9 @@
           "refId": "B"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "node_memory_Cached_bytes{instance=\"$instance\"}",
@@ -1087,9 +1087,9 @@
           "refId": "C"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "node_memory_Buffers_bytes{instance=\"$instance\"}",
@@ -1099,9 +1099,9 @@
           "refId": "D"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "node_memory_MemFree_bytes{instance=\"$instance\"}",
@@ -1111,9 +1111,9 @@
           "refId": "E"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "node_memory_SwapTotal_bytes{instance=\"$instance\"} - node_memory_SwapFree_bytes{instance=\"$instance\"}",
@@ -1123,9 +1123,9 @@
           "refId": "F"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "node_memory_SwapTotal_bytes{instance=\"$instance\"}",
@@ -1139,9 +1139,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1221,9 +1221,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "sum(rate(container_cpu_usage_seconds_total{node=\"$node\", image!=\"\"}[$__rate_interval])) by (pod)",
@@ -1236,9 +1236,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1318,9 +1318,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "sum(container_memory_working_set_bytes{node=\"$node\", image!=\"\"}) by (pod)",
@@ -1333,9 +1333,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "description": "Number of times a CPU core has been throttled on an instance.",
       "fieldConfig": {
@@ -1426,9 +1426,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1444,9 +1444,9 @@
     },
     {
       "collapsed": false,
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "gridPos": {
         "h": 1,
@@ -1460,9 +1460,9 @@
       "type": "row"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1543,9 +1543,9 @@
       },
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1556,9 +1556,9 @@
           "refId": "A"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1570,9 +1570,9 @@
           "refId": "B"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1588,9 +1588,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1668,9 +1668,9 @@
       },
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1682,9 +1682,9 @@
           "refId": "A"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1700,9 +1700,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1783,9 +1783,9 @@
       },
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1796,9 +1796,9 @@
           "refId": "A"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1814,9 +1814,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1898,9 +1898,9 @@
       },
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1912,9 +1912,9 @@
           "refId": "A"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1932,9 +1932,9 @@
     },
     {
       "collapsed": false,
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "gridPos": {
         "h": 1,
@@ -1948,9 +1948,9 @@
       "type": "row"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2030,9 +2030,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2043,9 +2043,9 @@
           "refId": "A"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2060,9 +2060,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2142,9 +2142,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "sum(rate(node_network_receive_errs_total{instance=\"$instance\"}[$__rate_interval]))",
@@ -2153,9 +2153,9 @@
           "refId": "A"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2170,9 +2170,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2252,9 +2252,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2265,9 +2265,9 @@
           "refId": "A"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2282,9 +2282,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2364,9 +2364,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "sum(rate(node_network_receive_drop_total{instance=\"$instance\"}[$__rate_interval]))",
@@ -2376,9 +2376,9 @@
           "refId": "A"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "- sum(rate(node_network_transmit_drop_total{instance=\"$instance\"}[$__rate_interval]))",
@@ -2392,9 +2392,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2474,9 +2474,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2491,9 +2491,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2589,9 +2589,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2602,9 +2602,9 @@
           "refId": "A"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2621,9 +2621,9 @@
     },
     {
       "collapsed": false,
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "gridPos": {
         "h": 1,
@@ -2637,9 +2637,9 @@
       "type": "row"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2720,9 +2720,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -2737,9 +2737,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2820,9 +2820,9 @@
       "pluginVersion": "11.2.0",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "max(kubelet_volume_stats_used_bytes{node=\"$node\"}) by (persistentvolumeclaim, namespace)",
@@ -2833,9 +2833,9 @@
           "refId": "A"
         },
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "exemplar": true,
           "expr": "max(kubelet_volume_stats_capacity_bytes{node=\"$node\"}) by (persistentvolumeclaim, namespace)",
@@ -2899,9 +2899,9 @@
       "type": "table"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2982,9 +2982,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -3000,9 +3000,9 @@
     },
     {
       "collapsed": false,
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "gridPos": {
         "h": 1,
@@ -3016,9 +3016,9 @@
       "type": "row"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -3099,9 +3099,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -3117,9 +3117,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -3200,9 +3200,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -3218,9 +3218,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -3301,9 +3301,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -3318,9 +3318,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -3401,9 +3401,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -3419,9 +3419,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -3502,9 +3502,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -3519,9 +3519,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -3602,9 +3602,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -3620,9 +3620,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -3703,9 +3703,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -3720,9 +3720,9 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
+      "prometheus": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -3803,9 +3803,9 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "datasource": {
+          "prometheus": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -3829,22 +3829,18 @@
   "templating": {
     "list": [
       {
-        "current": {
-          "selected": false,
-          "text": "prometheus",
-          "value": "prometheus"
-        },
+        "current": {},
         "hide": 0,
         "includeAll": false,
         "multi": false,
-        "name": "datasource",
+        "name": "prometheus",
         "options": [],
         "query": "prometheus",
         "queryValue": "",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
-        "type": "datasource"
+        "type": "prometheus"
       },
       {
         "current": {
@@ -3852,9 +3848,9 @@
           "text": "(any)",
           "value": ""
         },
-        "datasource": {
+        "prometheus": {
           "type": "prometheus",
-          "uid": "${datasource}"
+          "uid": "prometheus"
         },
         "definition": "label_values(kube_node_info,cluster)",
         "hide": 2,
@@ -3924,9 +3920,9 @@
       },
       {
         "current": {},
-        "datasource": {
+        "prometheus": {
           "type": "prometheus",
-          "uid": "${datasource}"
+          "uid": "prometheus"
         },
         "definition": "label_values(kube_node_info{}, node)",
         "hide": 0,
@@ -3946,9 +3942,9 @@
       },
       {
         "current": {},
-        "datasource": {
+        "prometheus": {
           "type": "prometheus",
-          "uid": "${datasource}"
+          "uid": "prometheus"
         },
         "definition": "label_values(node_uname_info{nodename=~\"(?i:($node)(\\\\.[a-z0-9.-]+)?)\"}, instance)",
         "hide": 2,
