@@ -13,6 +13,8 @@ resources:
   - grafana.yaml
   - grafana-datasources.yaml
   - grafana-dashboards.yaml
+  # Host + cluster resource dashboards (Node Exporter Full + dotdc K8s views).
+  - infrastructure-dashboards.yaml
   # Tailscale exposure for Grafana — same Kustomization as the Grafana CR
   # so nginx's upstream (the Service the operator creates from the CR) is
   # applied in the same batch. Avoids the nginx-stuck-without-upstream
