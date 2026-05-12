@@ -1,7 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: observability
+# All resources here already declare `metadata.namespace: observability`
+# explicitly; the top-level kustomize namespace is intentionally omitted to
+# stay consistent with clusters/may-chang/observability/kustomization.yaml.
 
 # Grafana CRs are reconciled only by the dedicated `observability-resources`
 # Flux Kustomization (dependsOn: observability). They are intentionally NOT
@@ -14,15 +16,19 @@ resources:
 
 configMapGenerator:
   - name: utro-dashboard-services
+    namespace: observability
     files:
       - utro-services.json
   - name: utro-dashboard-traces
+    namespace: observability
     files:
       - utro-traces.json
   - name: utro-dashboard-db-pool
+    namespace: observability
     files:
       - utro-db-pool.json
   - name: utro-dashboard-db-queries
+    namespace: observability
     files:
       - utro-db-queries.json
 

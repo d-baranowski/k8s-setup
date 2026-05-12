@@ -1,7 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: observability
+# No top-level `namespace:` field: HelmRepositories must live in flux-system
+# (where the helm-controller resolves `sourceRef`), while everything else
+# already declares `metadata.namespace: observability` explicitly. A global
+# kustomize-level namespace would override the flux-system one and break the
+# HelmReleases.
 
 # This directory only holds CRD-safe resources (namespace, ExternalSecrets,
 # HelmRepository/HelmRelease, Certificate, ClusterRole/CronJob, etc.) — every
