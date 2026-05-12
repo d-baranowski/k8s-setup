@@ -59,7 +59,7 @@ spec:
       # remote-written to Prometheus.
       metricsGenerator:
         enabled: true
-        remoteWriteUrl: "http://kps-kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090/api/v1/write"
+        remoteWriteUrl: "http://kps-prometheus.observability.svc.cluster.local:9090/api/v1/write"
 
       storage:
         trace:
