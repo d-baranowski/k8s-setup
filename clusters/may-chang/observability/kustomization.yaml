@@ -15,10 +15,16 @@ kind: Kustomization
 # so the root sweep never trips on missing operator CRDs.
 resources:
   - namespace.yaml
-  # External Secrets (S3 creds + grafana admin creds)
+  # External Secrets (S3 creds only).
+  # Grafana admin credentials are NOT managed via ExternalSecret because the
+  # grafana-operator insists on owning a Secret named `<grafana>-admin-credentials`
+  # to store the password it uses for its own API calls to Grafana. Letting ESO
+  # own that name caused the operator's "admin user" stage to fail. Read the
+  # operator-generated password with:
+  #   kubectl -n observability get secret grafana-admin-credentials \
+  #     -o jsonpath='{.data.GF_SECURITY_ADMIN_PASSWORD}' | base64 -d
   - loki-s3-credentials.yaml
   - tempo-s3-credentials.yaml
-  - grafana-admin-secret.yaml
   # Helm repos
   - helmrepo-prometheus-community.yaml
   - helmrepo-grafana.yaml
