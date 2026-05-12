@@ -15412,10 +15412,14 @@
   "templating": {
     "list": [
       {
-        "current": {},
+        "current": {
+          "selected": false,
+          "text": "prometheus",
+          "value": "prometheus"
+        },
         "includeAll": false,
         "label": "Datasource",
-        "name": "prometheus",
+        "name": "ds_prometheus",
         "options": [],
         "query": "prometheus",
         "refresh": 1,
@@ -15423,7 +15427,11 @@
         "type": "datasource"
       },
       {
-        "current": {},
+        "current": {
+          "selected": false,
+          "text": "node-exporter",
+          "value": "node-exporter"
+        },
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
@@ -15432,7 +15440,13 @@
         "includeAll": false,
         "label": "Job",
         "name": "job",
-        "options": [],
+        "options": [
+          {
+            "selected": true,
+            "text": "node-exporter",
+            "value": "node-exporter"
+          }
+        ],
         "query": {
           "query": "label_values(node_uname_info, job)",
           "refId": "Prometheus-job-Variable-Query"
@@ -15443,13 +15457,21 @@
         "type": "query"
       },
       {
-        "current": {},
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
         "definition": "label_values(node_uname_info{job=\"$job\"}, nodename)",
-        "includeAll": false,
+        "includeAll": true,
         "label": "Nodename",
         "name": "nodename",
         "options": [],
@@ -15460,16 +15482,26 @@
         "refresh": 1,
         "regex": "",
         "sort": 1,
-        "type": "query"
+        "type": "query",
+        "allValue": ".+",
+        "multi": true
       },
       {
-        "current": {},
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
         "definition": "label_values(node_uname_info{job=\"$job\", nodename=\"$nodename\"}, instance)",
-        "includeAll": false,
+        "includeAll": true,
         "label": "Instance",
         "name": "node",
         "options": [],
@@ -15480,7 +15512,9 @@
         "refresh": 1,
         "regex": "",
         "sort": 1,
-        "type": "query"
+        "type": "query",
+        "allValue": ".+",
+        "multi": true
       }
     ]
   },
