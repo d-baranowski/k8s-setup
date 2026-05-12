@@ -29,12 +29,18 @@ resources:
   - helmrepo-prometheus-community.yaml
   - helmrepo-grafana.yaml
   - helmrepo-grafana-operator.yaml
+  - helmrepo-opentelemetry.yaml
   # Helm releases
   - helmrelease-kube-prometheus-stack.yaml
   - helmrelease-loki.yaml
   - helmrelease-promtail.yaml
   - helmrelease-tempo.yaml
   - helmrelease-grafana-operator.yaml
+  # OTel Collector fans out app-pushed OTLP into traces→Tempo and
+  # metrics→Prometheus remote_write. Tempo's OTLP endpoint only handles
+  # traces (returns 404 on /v1/metrics) so apps that emit both must push
+  # to the collector, not directly to Tempo.
+  - helmrelease-otel-collector.yaml
   # The Tailscale exposure (nginx-proxy + cert-sync CronJob) lives in
   # clusters/may-chang/observability-resources/ alongside the Grafana CR.
   # nginx's upstream is the Service created by the operator from the Grafana
