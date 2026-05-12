@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: observability
+
+resources:
+  - namespace.yaml
+  # External Secrets (S3 creds + grafana admin creds)
+  - loki-s3-credentials.yaml
+  - tempo-s3-credentials.yaml
+  - grafana-admin-secret.yaml
+  # Helm repos
+  - helmrepo-prometheus-community.yaml
+  - helmrepo-grafana.yaml
+  - helmrepo-grafana-operator.yaml
+  # Helm releases
+  - helmrelease-kube-prometheus-stack.yaml
+  - helmrelease-loki.yaml
+  - helmrelease-promtail.yaml
+  - helmrelease-tempo.yaml
+  - helmrelease-grafana-operator.yaml
+  # Grafana CRs
+  - grafana.yaml
+  - grafana-datasources.yaml
+  - grafana-dashboards.yaml
+  # Tailscale exposure
+  - grafana-nginx-proxy.yaml
+  - grafana-cert-sync.yaml
+
+configMapGenerator:
+  - name: utro-dashboard-services
+    files:
+      - utro-services.json
+  - name: utro-dashboard-traces
+    files:
+      - utro-traces.json
+  - name: utro-dashboard-db-pool
+    files:
+      - utro-db-pool.json
+  - name: utro-dashboard-db-queries
+    files:
+      - utro-db-queries.json
+
+generatorOptions:
+  # Stable names so the GrafanaDashboard CRs can reference them.
+  disableNameSuffixHash: true

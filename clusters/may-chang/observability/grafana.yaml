@@ -1,0 +1,49 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: grafana
+  namespace: observability
+  labels:
+    # Label used by GrafanaDashboard/GrafanaDatasource CRs to target this instance.
+    dashboards: "grafana"
+spec:
+  config:
+    log:
+      mode: "console"
+    auth:
+      disable_login_form: "false"
+    security:
+      allow_embedding: "false"
+    server:
+      root_url: "https://grafana.folk-saiph.ts.net"
+      serve_from_sub_path: "false"
+  deployment:
+    spec:
+      replicas: 1
+      template:
+        spec:
+          containers:
+            - name: grafana
+              envFrom:
+                - secretRef:
+                    name: grafana-admin-credentials
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  memory: 512Mi
+  service:
+    spec:
+      type: ClusterIP
+      ports:
+        - name: http
+          port: 3000
+          targetPort: 3000
+  persistentVolumeClaim:
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi

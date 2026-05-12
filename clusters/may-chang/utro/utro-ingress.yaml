@@ -18,3 +18,52 @@ spec:
                 name: utro-ui
                 port:
                   number: 3000
+---
+# ExternalName service that points at Tempo's OTLP HTTP receiver in the
+# observability namespace. Used by the OTel-proxy Ingress below — nginx
+# Ingress can only reference Services in its own namespace, so we project
+# the cross-namespace target into `default` via ExternalName.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempo-otlp-http
+  namespace: default
+spec:
+  type: ExternalName
+  externalName: tempo.observability.svc.cluster.local
+  ports:
+    - name: otlp-http
+      port: 4318
+      protocol: TCP
+---
+# Routes browser-emitted OTel traces (POST /otel/v1/traces) to Tempo.
+# Kept as a separate Ingress so the /-rewrite annotation on utro-ingress
+# doesn't strip the /v1/traces suffix.
+#
+# NOTE: For production exposure via the Cloudflare tunnel, add a path rule
+# in the Cloudflare dashboard for the production hostname:
+#   /otel/*  →  http://<the public hostname pointing at this ingress>/otel/$1
+# (or repoint the tunnel at this ingress entirely).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: utro-otel-ingress
+  namespace: default
+  annotations:
+    # Rewrite /otel/v1/traces → /v1/traces before forwarding to Tempo.
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # Browser OTel exporter sends gzip + protobuf payloads ~1-30KB.
+    nginx.ingress.kubernetes.io/proxy-body-size: "5m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: utro.local
+      http:
+        paths:
+          - path: /otel(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: tempo-otlp-http
+                port:
+                  number: 4318

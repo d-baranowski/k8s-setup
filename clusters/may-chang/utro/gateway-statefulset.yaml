@@ -45,6 +45,16 @@ spec:
           value: "true"
         - name: RPG_PERMISSIONS_FLAG
           value: "true"
+        - name: SERVICE_NAME
+          value: "rpg.gateway"
+        - name: SERVICE_ENV
+          value: "prod"
+        - name: TR_ENABLED
+          value: "true"
+        - name: TR_ENDPOINT
+          value: "tempo.observability.svc.cluster.local:4318"
+        - name: TR_HTTPS
+          value: "false"
         - name: DB_SSL
           value: "true"
         - name: DB_NAME

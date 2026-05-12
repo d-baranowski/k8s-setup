@@ -12,3 +12,4 @@ resources:
   - pg-operator
   - tailscale-operator
   - utro
+  - observability
