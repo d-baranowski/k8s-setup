@@ -40,12 +40,6 @@ spec:
       prometheusSpec:
         retention: 14d
         retentionSize: ""
-        # `cluster` external label so community dashboards that filter on
-        # $cluster (dotdc/grafana-dashboards-kubernetes etc.) have a value
-        # to bind to. Multi-cluster Prometheus federations also rely on
-        # this label to disambiguate sources.
-        externalLabels:
-          cluster: may-chang
         serviceMonitorSelectorNilUsesHelmValues: false
         podMonitorSelectorNilUsesHelmValues: false
         ruleSelectorNilUsesHelmValues: false

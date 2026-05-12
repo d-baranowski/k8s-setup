@@ -39,6 +39,19 @@ configMapGenerator:
     namespace: observability
     files:
       - utro-db-queries.json
+  # Vendored community dashboards (patched — see infrastructure-dashboards.yaml).
+  - name: infra-dashboard-node-exporter-full
+    namespace: observability
+    files:
+      - node-exporter-full.json
+  - name: infra-dashboard-k8s-views-global
+    namespace: observability
+    files:
+      - k8s-views-global.json
+  - name: infra-dashboard-k8s-views-nodes
+    namespace: observability
+    files:
+      - k8s-views-nodes.json
 
 generatorOptions:
   # Stable names so the GrafanaDashboard CRs can reference them.
