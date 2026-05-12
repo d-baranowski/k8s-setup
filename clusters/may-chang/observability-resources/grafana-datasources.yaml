@@ -12,7 +12,9 @@ spec:
     uid: prometheus
     type: prometheus
     access: proxy
-    url: http://kps-kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
+    # Service name reflects `fullnameOverride: kps` on the kube-prometheus-stack
+    # HelmRelease — bare chart fullname would be `kube-prometheus-stack-prometheus`.
+    url: http://kps-prometheus.observability.svc.cluster.local:9090
     isDefault: true
     editable: false
     jsonData:
@@ -57,7 +59,8 @@ spec:
     uid: tempo
     type: tempo
     access: proxy
-    url: http://tempo.observability.svc.cluster.local:3100
+    # Port 3200 is Tempo's HTTP query API. 3100 was a copy-paste from Loki.
+    url: http://tempo.observability.svc.cluster.local:3200
     editable: false
     jsonData:
       tracesToLogsV2:
