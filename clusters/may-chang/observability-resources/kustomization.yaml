@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: observability
+
+# Grafana CRs are reconciled only by the dedicated `observability-resources`
+# Flux Kustomization (dependsOn: observability). They are intentionally NOT
+# referenced by clusters/may-chang/kustomization.yaml so the root sweep never
+# tries to apply them before grafana-operator has installed its CRDs.
+resources:
+  - grafana.yaml
+  - grafana-datasources.yaml
+  - grafana-dashboards.yaml
+
+configMapGenerator:
+  - name: utro-dashboard-services
+    files:
+      - utro-services.json
+  - name: utro-dashboard-traces
+    files:
+      - utro-traces.json
+  - name: utro-dashboard-db-pool
+    files:
+      - utro-db-pool.json
+  - name: utro-dashboard-db-queries
+    files:
+      - utro-db-queries.json
+
+generatorOptions:
+  # Stable names so the GrafanaDashboard CRs can reference them.
+  disableNameSuffixHash: true
