@@ -47,10 +47,13 @@ spec:
         serviceMonitorNamespaceSelector: {}
         podMonitorNamespaceSelector: {}
         ruleNamespaceSelector: {}
-        # Remote write from Tempo's metrics-generator (service graph + span metrics)
-        # is done by Tempo *pushing* to Prometheus, so we need remote-write-receiver.
-        enableFeatures:
-          - remote-write-receiver
+        # Remote write from Tempo's metrics-generator (service graph + span
+        # metrics) — Tempo pushes to Prometheus via /api/v1/write. The
+        # prometheus-operator field below maps to the `--web.enable-remote-write-receiver`
+        # CLI flag; `enableFeatures: [remote-write-receiver]` does NOT (it's
+        # a separate Prometheus feature-flag mechanism and doesn't enable the
+        # HTTP receiver endpoint).
+        enableRemoteWriteReceiver: true
         resources:
           requests:
             cpu: 200m
