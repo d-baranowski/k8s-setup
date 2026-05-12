@@ -31,16 +31,20 @@ spec:
       limits:
         memory: 2Gi
 
-    # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY are injected from the
-    # `tempo-s3-credentials` Secret (synced via ExternalSecret). Bucket
-    # name is the deterministic one created by Terraform.
-    extraEnvFrom:
-      - secretRef:
-          name: tempo-s3-credentials
-
     # Tempo monolithic config
     tempo:
       retention: 336h  # 14 days
+
+      # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY are injected from the
+      # `tempo-s3-credentials` Secret (synced via ExternalSecret). The Tempo
+      # binary's AWS SDK picks them up automatically. Bucket name is the
+      # deterministic one created by Terraform.
+      # NOTE: `extraEnvFrom` belongs UNDER the `tempo:` block in this chart
+      # (v1.24.x), not at the top level — the chart's templates only inject
+      # env from `tempo.extraEnvFrom`.
+      extraEnvFrom:
+        - secretRef:
+            name: tempo-s3-credentials
 
       receivers:
         otlp:
