@@ -29,6 +29,11 @@ resources:
   - helmrelease-promtail.yaml
   - helmrelease-tempo.yaml
   - helmrelease-grafana-operator.yaml
-  # Tailscale exposure
-  - grafana-nginx-proxy.yaml
-  - grafana-cert-sync.yaml
+  # The Tailscale exposure (nginx-proxy + cert-sync CronJob) lives in
+  # clusters/may-chang/observability-resources/ alongside the Grafana CR.
+  # nginx's upstream is the Service created by the operator from the Grafana
+  # CR; keeping them in the same Flux Kustomization avoids a deadlock where
+  # the nginx Deployment health-check fails (no Service to resolve) and
+  # stalls the entire `observability` Kustomization, which would in turn
+  # block `observability-resources` (the very Kustomization that applies
+  # the Grafana CR that creates the Service).
