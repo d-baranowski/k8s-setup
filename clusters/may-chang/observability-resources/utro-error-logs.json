@@ -27,7 +27,7 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum", "last"] } },
       "targets": [
         {
-          "expr": "sum by (service_name) (count_over_time({namespace=\"default\", detected_level=\"error\", service_name=~\"$service\"} [$__interval]))",
+          "expr": "sum by (service_name) (count_over_time({namespace=\"default\", service_name=~\"$service\"} | detected_level = `error` [$__interval]))",
           "legendFormat": "{{service_name}}",
           "refId": "A"
         }
@@ -49,7 +49,7 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum", "last"] } },
       "targets": [
         {
-          "expr": "sum by (node_name) (count_over_time({namespace=\"default\", detected_level=\"error\", service_name=~\"$service\"} [$__interval]))",
+          "expr": "sum by (node_name) (count_over_time({namespace=\"default\", service_name=~\"$service\"} | detected_level = `error` [$__interval]))",
           "legendFormat": "{{node_name}}",
           "refId": "A"
         }
@@ -71,7 +71,7 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum", "last"] } },
       "targets": [
         {
-          "expr": "sum by (service_name, node_name) (count_over_time({namespace=\"default\", detected_level=\"error\", service_name=~\"$service\"} [$__interval]))",
+          "expr": "sum by (service_name, node_name) (count_over_time({namespace=\"default\", service_name=~\"$service\"} | detected_level = `error` [$__interval]))",
           "legendFormat": "{{service_name}} @ {{node_name}}",
           "refId": "A"
         }
@@ -102,7 +102,7 @@
       },
       "targets": [
         {
-          "expr": "{namespace=\"default\", detected_level=\"error\", service_name=~\"$service\"}",
+          "expr": "{namespace=\"default\", service_name=~\"$service\"} | detected_level = `error`",
           "refId": "A"
         }
       ],
