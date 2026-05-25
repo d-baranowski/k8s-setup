@@ -39,6 +39,10 @@ configMapGenerator:
     namespace: observability
     files:
       - utro-db-queries.json
+  - name: utro-dashboard-error-logs
+    namespace: observability
+    files:
+      - utro-error-logs.json
   # Vendored community dashboards (patched — see infrastructure-dashboards.yaml).
   - name: infra-dashboard-node-exporter-full
     namespace: observability
