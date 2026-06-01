@@ -11,6 +11,7 @@ resources:
 - nginx-ingress-kustomization.yaml
 - pg-operator-kustomization.yaml
 - utro-kustomization.yaml
+- utr-staging-kustomization.yaml
 - n8n-kustomization.yaml
 - tailscale-operator-kustomization.yaml
 - mattermost-operator-kustomization.yaml
