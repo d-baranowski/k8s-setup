@@ -9,13 +9,9 @@ spec:
 
   postgresql:
     version: "15"
-    # No shared_preload_libraries override. Spilo's default preload list already
-    # includes pg_cron (alongside bg_mon, pg_stat_statements, set_user,
-    # pg_auth_mon, pg_stat_kcache, ...). Overriding it to just "pg_cron" strips
-    # those other modules, and Spilo's post_init bootstrap script then fails to
-    # CREATE EXTENSION for them ("can only be loaded via shared_preload_libraries"),
-    # aborting bootstrap on a fresh cluster. Leaving the default lets it init
-    # cleanly with pg_cron still available.
+    parameters:
+      shared_preload_libraries: "pg_cron"
+      cron.database_name: "utr_staging"
 
   patroni:
     pg_hba:
