@@ -11,7 +11,11 @@ spec:
     version: "15"
     parameters:
       shared_preload_libraries: "pg_cron"
-      cron.database_name: "utr_staging"
+      # pg_cron must live in a database that exists at bootstrap time. On a fresh
+      # cluster the app database (utr_staging) does not exist yet when Spilo's
+      # post_init runs CREATE EXTENSION, so pointing cron here aborts bootstrap.
+      # Use "postgres" (matches how pg-op-cluster actually ended up).
+      cron.database_name: "postgres"
 
   patroni:
     pg_hba:
