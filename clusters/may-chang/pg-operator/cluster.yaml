@@ -65,9 +65,11 @@ spec:
   users:
     n8n_user: [CREATEROLE]
     utro_user: [CREATEROLE]
+    utr_staging_user: [CREATEROLE]
     mattermost_user: [CREATEROLE]
 
   databases:
     n8n: n8n_user
     utro: utro_user
+    utr-staging: utr_staging_user
     mattermost: mattermost_user
