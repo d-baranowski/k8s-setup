@@ -22,13 +22,9 @@ spec:
         ports:
         - containerPort: 8080
           name: api
-        - containerPort: 18008
-          name: health
         env:
         - name: TIMEZONE
           value: "Europe/Warsaw"
-        - name: HEALTH_PORT
-          value: "18008"
         - name: BOOTSTRAP_API_PORT
           value: "8080"
         - name: LOG_LEVEL
@@ -70,14 +66,12 @@ spec:
               name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
               key: password
         livenessProbe:
-          httpGet:
-            path: /live
-            port: health
-          initialDelaySeconds: 60
+          tcpSocket:
+            port: api
+          initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
-          httpGet:
-            path: /ready
-            port: health
-          initialDelaySeconds: 60
+          tcpSocket:
+            port: api
+          initialDelaySeconds: 10
           periodSeconds: 5
