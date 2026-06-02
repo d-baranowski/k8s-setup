@@ -6,3 +6,7 @@ resources:
   - core-statefulset.yaml
   - core-service.yaml
   - payment-migrate-job.yaml
+  - payment-statefulset.yaml
+  - payment-service.yaml
+  - gateway-statefulset.yaml
+  - gateway-service.yaml
