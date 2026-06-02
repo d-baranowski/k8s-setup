@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: utr-staging-payment
+  namespace: default
+  labels:
+    app: utr-staging-payment
+spec:
+  serviceName: utr-staging-payment
+  replicas: 2
+  selector:
+    matchLabels:
+      app: utr-staging-payment
+  template:
+    metadata:
+      labels:
+        app: utr-staging-payment
+    spec:
+      containers:
+      - name: payment
+        image: ghcr.io/inspiration-particle/utro-payment:0.1.20  # {"$imagepolicy": "flux-system:utr-staging-payment"}
+        ports:
+        - containerPort: 9102
+          name: api
+        - containerPort: 18007
+          name: health
+        env:
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: HEALTH_PORT
+          value: "18007"
+        - name: API_PORT
+          value: "9102"
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: RPG_PERMISSIONS_FLAG
+          value: "true"
+        - name: SERVICE_NAME
+          value: "rpg.payment"
+        - name: SERVICE_ENV
+          value: "prod"
+        - name: TR_ENABLED
+          value: "true"
+        - name: TR_ENDPOINT
+          value: "otel-collector.observability.svc.cluster.local:4318"
+        - name: TR_HTTPS
+          value: "false"
+        - name: DB_TRACE
+          value: "true"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_NAME
+          value: "utr_staging"
+        - name: DB_HOST
+          value: "pg-staging-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: password
+        - name: STRIPE_PUBLISHABLE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: stripe-publishable-key
+              key: value
+        - name: STRIPE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: stripe-secret-key
+              key: value
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: health
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: health
+          initialDelaySeconds: 60
+          periodSeconds: 5

@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: utr-staging-ui
+  namespace: default
+  labels:
+    app: utr-staging-ui
+spec:
+  serviceName: utr-staging-ui
+  replicas: 2
+  selector:
+    matchLabels:
+      app: utr-staging-ui
+  template:
+    metadata:
+      labels:
+        app: utr-staging-ui
+    spec:
+      containers:
+      - name: ui
+        image: ghcr.io/inspiration-particle/utro-ui:0.1.20 # {"$imagepolicy": "flux-system:utr-staging-ui"}
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: NODE_ENV
+          value: "production"
+        - name: BFF_URL
+          value: "http://utr-staging-gateway.default.svc.cluster.local:9999"
+#        - name: CORE_URL
+#          value: "http://utr-staging-core.default.svc.cluster.local:9102"
+        - name: PORT
+          value: "3000"
+        - name: NEXT_TELEMETRY_DISABLED
+          value: "1"
+        - name: CF_TEAM_DOMAIN
+          value: inspiration-particle.cloudflareaccess.com
+        - name: CF_JWT_ISSUER
+          value: https://inspiration-particle.cloudflareaccess.com
+        - name: CF_JWT_AUDIENCE
+          value: afe0fdc2ff299a8bdc7c1e5fd42cc98ecb9c965f447abce6c559b5d6d3613865
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/ready
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
