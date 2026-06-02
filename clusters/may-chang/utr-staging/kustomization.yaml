@@ -10,3 +10,8 @@ resources:
   - payment-service.yaml
   - gateway-statefulset.yaml
   - gateway-service.yaml
+  - ui-service.yaml
+  - ui-statefulset.yaml
+  - image-repositories.yaml
+  - image-policies.yaml
+  - image-update-automation.yaml
