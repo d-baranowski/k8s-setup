@@ -39,10 +39,12 @@ spec:
           value: "debug"
         - name: RPG_PERMISSIONS_FLAG
           value: "true"
+        - name: SERVICE_VERSION
+          value: "0.1.37" # {"$imagepolicy": "flux-system:utr-staging-core:tag"}
         - name: SERVICE_NAME
           value: "rpg.core"
         - name: SERVICE_ENV
-          value: "prod"
+          value: "staging"
         - name: TR_ENABLED
           value: "true"
         - name: TR_ENDPOINT
