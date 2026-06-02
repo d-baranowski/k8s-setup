@@ -44,3 +44,25 @@ spec:
   interval: 5m0s
   secretRef:
     name: ghcr-pull-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: utr-staging-notification
+  namespace: flux-system
+spec:
+  image: ghcr.io/inspiration-particle/utro-notification
+  interval: 5m0s
+  secretRef:
+    name: ghcr-pull-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: utr-staging-bootstrap
+  namespace: flux-system
+spec:
+  image: ghcr.io/inspiration-particle/utro-bootstrap
+  interval: 5m0s
+  secretRef:
+    name: ghcr-pull-secret
