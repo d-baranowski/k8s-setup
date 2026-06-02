@@ -1,56 +1,48 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: utr-staging-gateway
+  name: utr-staging-bootstrap
   namespace: default
   labels:
-    app: utr-staging-gateway
+    app: utr-staging-bootstrap
 spec:
-  serviceName: utr-staging-gateway
-  replicas: 2
+  serviceName: utr-staging-bootstrap
+  replicas: 1
   selector:
     matchLabels:
-      app: utr-staging-gateway
+      app: utr-staging-bootstrap
   template:
     metadata:
       labels:
-        app: utr-staging-gateway
+        app: utr-staging-bootstrap
     spec:
       containers:
-      - name: gateway
-        image: ghcr.io/inspiration-particle/utro-gateway:0.1.35 # {"$imagepolicy": "flux-system:utr-staging-gateway"}
+      - name: bootstrap
+        image: ghcr.io/inspiration-particle/utro-bootstrap:0.1.35 # {"$imagepolicy": "flux-system:utr-staging-bootstrap"}
         ports:
-        - containerPort: 9999
+        - containerPort: 8080
           name: api
-        - containerPort: 18007
+        - containerPort: 18008
           name: health
         env:
         - name: TIMEZONE
           value: "Europe/Warsaw"
         - name: HEALTH_PORT
-          value: "18007"
-        - name: API_PORT
-          value: "9999"
-        - name: USER
-          value: "postgres"
+          value: "18008"
+        - name: BOOTSTRAP_API_PORT
+          value: "8080"
         - name: LOG_LEVEL
           value: "debug"
-        - name: PAYMENT_SERVICE
-          value: "utr-staging-payment.default.svc.cluster.local:9102"
-        - name: NOTIFICATION_SERVICE
+        - name: ENABLE_DEV_API
+          value: "true"
+        - name: CORE_API_URL
+          value: "http://utr-staging-core.default.svc.cluster.local:9102"
+        - name: NOTIFICATION_API_URL
           value: "http://utr-staging-notification.default.svc.cluster.local:9002"
-        - name: CORE_SERVICE
-          value: "utr-staging-core.default.svc.cluster.local:9102"
-        - name: WITH_PERMISSIONS
-          value: "true"
-        - name: ENABLE_PERMISSIONS
-          value: "true"
-        - name: RPG_PERMISSIONS_FLAG
-          value: "true"
         - name: SERVICE_NAME
-          value: "rpg.gateway"
+          value: "rpg-bootstrap"
         - name: SERVICE_ENV
-          value: "prod"
+          value: "staging"
         - name: TR_ENABLED
           value: "true"
         - name: TR_ENDPOINT

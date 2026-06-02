@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: utr-staging-notification-migrate
+  namespace: default
+  labels:
+    app: utr-staging-notification-migrate
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: utr-staging-notification-migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrate
+        image: ghcr.io/inspiration-particle/utro-notification:0.1.35 # {"$imagepolicy": "flux-system:utr-staging-notification"}
+        command: ["/app/notification"]
+        args: ["-migrate=true"]
+        env:
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_NAME
+          value: "utr_staging"
+        - name: DB_HOST
+          value: "pg-staging-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: password
