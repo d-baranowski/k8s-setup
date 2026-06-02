@@ -22,9 +22,13 @@ spec:
         ports:
         - containerPort: 8080
           name: api
+        - containerPort: 18008
+          name: health
         env:
         - name: TIMEZONE
           value: "Europe/Warsaw"
+        - name: HEALTH_PORT
+          value: "18008"
         - name: BOOTSTRAP_API_PORT
           value: "8080"
         - name: LOG_LEVEL
@@ -35,6 +39,8 @@ spec:
           value: "http://utr-staging-core.default.svc.cluster.local:9102"
         - name: NOTIFICATION_API_URL
           value: "http://utr-staging-notification.default.svc.cluster.local:9002"
+        - name: SERVICE_VERSION
+          value: "0.1.37" # {"$imagepolicy": "flux-system:utr-staging-bootstrap:tag"}
         - name: SERVICE_NAME
           value: "rpg-bootstrap"
         - name: SERVICE_ENV
@@ -66,12 +72,14 @@ spec:
               name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
               key: password
         livenessProbe:
-          tcpSocket:
-            port: api
-          initialDelaySeconds: 30
+          httpGet:
+            path: /live
+            port: health
+          initialDelaySeconds: 60
           periodSeconds: 10
         readinessProbe:
-          tcpSocket:
-            port: api
-          initialDelaySeconds: 10
+          httpGet:
+            path: /ready
+            port: health
+          initialDelaySeconds: 60
           periodSeconds: 5
