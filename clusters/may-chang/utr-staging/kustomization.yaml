@@ -5,3 +5,4 @@ resources:
   - core-migrate-job.yaml
   - core-statefulset.yaml
   - core-service.yaml
+  - payment-migrate-job.yaml
