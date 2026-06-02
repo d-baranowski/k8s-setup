@@ -16,25 +16,7 @@ spec:
       author:
         email: fluxcdbot@users.noreply.github.com
         name: fluxcdbot
-      messageTemplate: |
-        Automated image update
-        
-        Automation name: {{ .AutomationObject }}
-        
-        Files:
-        {{ range $filename, $_ := .Changed.FileChanges -}}
-        - {{ $filename }}
-        {{ end -}}
-
-        Objects:
-        {{ range $resource, $_ := .Changed.ObjectChanges -}}
-        - {{ $resource.Kind }} {{ $resource.Name }}
-        {{ end -}}
-
-        Images:
-        {{ range .Changed.ImageChanges -}}
-        - {{.}}
-        {{ end -}}
+      messageTemplate: 'Automated image update by {{ .AutomationObject }}'
     push:
       branch: main
   update:
