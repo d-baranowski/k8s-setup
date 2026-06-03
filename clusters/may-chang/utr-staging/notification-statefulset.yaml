@@ -60,12 +60,12 @@ spec:
         - name: DB_USER
           valueFrom:
             secretKeyRef:
-              name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              name: utr-staging-migrator.pg-staging-cluster.credentials.postgresql.acid.zalan.do
               key: username
         - name: DB_PASS
           valueFrom:
             secretKeyRef:
-              name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              name: utr-staging-migrator.pg-staging-cluster.credentials.postgresql.acid.zalan.do
               key: password
         livenessProbe:
           httpGet:
