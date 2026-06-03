@@ -1,0 +1,8 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored -- never commit real credentials.
+#
+# Alternatively, export CLOUDFLARE_API_TOKEN as an env var and
+# omit cloudflare_api_token here.
+
+cloudflare_api_token  = ""
+cloudflare_account_id = ""

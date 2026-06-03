@@ -1,0 +1,10 @@
+# Jenkins CLI jar — fetched on demand from $JENKINS_URL/jnlpJars/jenkins-cli.jar.
+# Don't commit; users grab their own (~3 MB, version-coupled to the controller).
+jenkins-cli.jar
+
+# GCP service-account key produced by `bootstrap-gcp.sh sa`.
+# This is a credential — never commit. It's already mirrored into:
+#   - Jenkins credential `gcp-ci-fleet-sa-key`
+#   - sops at nixos-workbenches/nixos-servers/secrets/may-chang.yaml
+# Delete the local copy after both are in place if you're paranoid.
+ci-fleet-key.json
