@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: core
-        image: ghcr.io/inspiration-particle/utro-core:0.1.41 # {"$imagepolicy": "flux-system:utr-staging-core"}
+        image: ghcr.io/inspiration-particle/utro-core:0.1.42 # {"$imagepolicy": "flux-system:utr-staging-core"}
         ports:
         - containerPort: 9102
           name: api
@@ -40,7 +40,7 @@ spec:
         - name: RPG_PERMISSIONS_FLAG
           value: "true"
         - name: SERVICE_VERSION
-          value: "0.1.41" # {"$imagepolicy": "flux-system:utr-staging-core:tag"}
+          value: "0.1.42" # {"$imagepolicy": "flux-system:utr-staging-core:tag"}
         - name: SERVICE_NAME
           value: "rpg.core"
         - name: SERVICE_ENV
