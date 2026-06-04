@@ -10,4 +10,9 @@ spec:
   - port: 9002
     targetPort: api
     protocol: TCP
+    name: api
+  - port: 18007
+    targetPort: 18007
+    protocol: TCP
+    name: health
   type: ClusterIP
