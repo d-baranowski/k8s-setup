@@ -43,6 +43,14 @@ spec:
           value: "3000"
         - name: NEXT_TELEMETRY_DISABLED
           value: "1"
+        - name: NEXT_PUBLIC_OTEL_ENABLED
+          value: "true"
+        - name: NEXT_PUBLIC_OTEL_ENDPOINT
+          value: "/otel/v1/traces"
+        - name: NEXT_PUBLIC_SERVICE_ENV
+          value: "staging"
+        - name: OTEL_COLLECTOR_URL
+          value: "http://otel-collector.observability.svc.cluster.local:4318"
         - name: CF_TEAM_DOMAIN
           value: inspiration-particle.cloudflareaccess.com
         - name: CF_JWT_ISSUER
