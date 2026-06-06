@@ -57,6 +57,11 @@ spec:
           value: "pg-staging-cluster.default.svc.cluster.local"
         - name: DB_PORT
           value: "5432"
+        - name: RESEND_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: resend-staging
+              key: value
         - name: DB_USER
           valueFrom:
             secretKeyRef:

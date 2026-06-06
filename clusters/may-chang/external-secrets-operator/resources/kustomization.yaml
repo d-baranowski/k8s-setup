@@ -8,3 +8,5 @@ resources:
   - stripe-publishable-key-secret.yaml
   - stripe-secret-key-secret.yaml
   - ghcr-pull-secret.yaml
+  - resend-staging-secret.yaml
+  - resend-production-secret.yaml
