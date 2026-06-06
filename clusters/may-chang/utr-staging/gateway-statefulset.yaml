@@ -38,7 +38,7 @@ spec:
         - name: PAYMENT_SERVICE
           value: "utr-staging-payment.default.svc.cluster.local:9102"
         - name: NOTIFICATION_SERVICE
-          value: "http://utr-staging-notification.default.svc.cluster.local:9002"
+          value: "utr-staging-notification.default.svc.cluster.local:9002"
         - name: CORE_SERVICE
           value: "utr-staging-core.default.svc.cluster.local:9102"
         - name: WITH_PERMISSIONS

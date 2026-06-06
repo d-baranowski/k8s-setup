@@ -14,3 +14,6 @@ resources:
   - payment-statefulset.yaml
   - payment-service.yaml
   - payment-migrate-job.yaml
+  - notification-statefulset.yaml
+  - notification-service.yaml
+  - notification-migrate-job.yaml

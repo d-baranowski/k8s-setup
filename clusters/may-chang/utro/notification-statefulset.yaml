@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: utro-gateway
+  name: utro-notification
   namespace: default
   labels:
-    app: utro-gateway
+    app: utro-notification
 spec:
-  serviceName: utro-gateway
-  replicas: 2
+  serviceName: utro-notification
+  replicas: 1
   selector:
     matchLabels:
-      app: utro-gateway
+      app: utro-notification
   template:
     metadata:
       labels:
-        app: utro-gateway
+        app: utro-notification
     spec:
       containers:
-      - name: gateway
-        image: ghcr.io/inspiration-particle/utro-gateway:0.1.20
+      - name: notification
+        image: ghcr.io/inspiration-particle/utro-notification:0.1.20
         ports:
-        - containerPort: 9999
+        - containerPort: 9002
           name: api
         - containerPort: 18007
           name: health
@@ -30,25 +30,11 @@ spec:
         - name: HEALTH_PORT
           value: "18007"
         - name: API_PORT
-          value: "9999"
-        - name: USER
-          value: "postgres"
+          value: "9002"
         - name: LOG_LEVEL
           value: "debug"
-        - name: PAYMENT_SERVICE
-          value: "utro-payment.default.svc.cluster.local:9102"
-        - name: NOTIFICATION_SERVICE
-          value: "utro-notification.default.svc.cluster.local:9002"
-        - name: CORE_SERVICE
-          value: "utro-core.default.svc.cluster.local:9102"
-        - name: WITH_PERMISSIONS
-          value: "true"
-        - name: ENABLE_PERMISSIONS
-          value: "true"
-        - name: RPG_PERMISSIONS_FLAG
-          value: "true"
         - name: SERVICE_NAME
-          value: "rpg.gateway"
+          value: "rpg.notification"
         - name: SERVICE_ENV
           value: "prod"
         - name: TR_ENABLED
