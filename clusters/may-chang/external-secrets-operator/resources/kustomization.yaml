@@ -10,3 +10,5 @@ resources:
   - ghcr-pull-secret.yaml
   - resend-staging-secret.yaml
   - resend-production-secret.yaml
+  - resend-staging-webhook-secret.yaml
+  - resend-production-webhook-secret.yaml

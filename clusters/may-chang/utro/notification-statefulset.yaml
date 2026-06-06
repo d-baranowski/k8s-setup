@@ -60,6 +60,13 @@ spec:
             secretKeyRef:
               name: resend-production
               key: value
+        - name: EMAIL_WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: prod-webhook-secret-resend
+              key: value
+        - name: PUBLIC_WEBHOOK_URL
+          value: "https://utro.inspiration-particle.com/webhook"
         - name: DB_USER
           valueFrom:
             secretKeyRef:
