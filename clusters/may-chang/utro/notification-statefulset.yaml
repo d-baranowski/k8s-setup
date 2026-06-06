@@ -53,7 +53,9 @@ spec:
           value: "pg-op-cluster.default.svc.cluster.local"
         - name: DB_PORT
           value: "5432"
-        - name: RESEND_API_KEY
+        - name: EMAIL_FROM_ADDRESS
+          value: "kontakt@inspiration-particle.com"
+        - name: EMAIL_API_KEY
           valueFrom:
             secretKeyRef:
               name: resend-production
