@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: ui
-        image: ghcr.io/inspiration-particle/utro-ui:0.1.48 # {"$imagepolicy": "flux-system:utr-staging-ui"}
+        image: ghcr.io/inspiration-particle/utro-ui:0.1.49 # {"$imagepolicy": "flux-system:utr-staging-ui"}
         ports:
         - containerPort: 3000
           name: http
@@ -34,7 +34,7 @@ spec:
         - name: SERVICE_ENV
           value: "staging"
         - name: SERVICE_VERSION
-          value: "0.1.48" # {"$imagepolicy": "flux-system:utr-staging-ui:tag"}
+          value: "0.1.49" # {"$imagepolicy": "flux-system:utr-staging-ui:tag"}
         - name: BOOTSTRAP_API_URL
           value: "http://utr-staging-bootstrap.default.svc.cluster.local:8080"
         - name: VERSION_CHECK_URLS
