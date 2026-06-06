@@ -37,6 +37,8 @@ spec:
           value: "debug"
         - name: PAYMENT_SERVICE
           value: "utro-payment.default.svc.cluster.local:9102"
+        - name: NOTIFICATION_SERVICE
+          value: "utro-notification.default.svc.cluster.local:9002"
         - name: CORE_SERVICE
           value: "utro-core.default.svc.cluster.local:9102"
         - name: WITH_PERMISSIONS

@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: utr-staging-gateway
+  name: utro-notification
   namespace: default
   labels:
-    app: utr-staging-gateway
+    app: utro-notification
 spec:
-  serviceName: utr-staging-gateway
-  replicas: 2
+  serviceName: utro-notification
+  replicas: 1
   selector:
     matchLabels:
-      app: utr-staging-gateway
+      app: utro-notification
   template:
     metadata:
       labels:
-        app: utr-staging-gateway
+        app: utro-notification
     spec:
       containers:
-      - name: gateway
-        image: ghcr.io/inspiration-particle/utro-gateway:0.1.43 # {"$imagepolicy": "flux-system:utr-staging-gateway"}
+      - name: notification
+        image: ghcr.io/inspiration-particle/utro-notification:0.1.20
         ports:
-        - containerPort: 9999
+        - containerPort: 9002
           name: api
         - containerPort: 18007
           name: health
@@ -30,29 +30,13 @@ spec:
         - name: HEALTH_PORT
           value: "18007"
         - name: API_PORT
-          value: "9999"
-        - name: USER
-          value: "postgres"
+          value: "9002"
         - name: LOG_LEVEL
           value: "debug"
-        - name: PAYMENT_SERVICE
-          value: "utr-staging-payment.default.svc.cluster.local:9102"
-        - name: NOTIFICATION_SERVICE
-          value: "utr-staging-notification.default.svc.cluster.local:9002"
-        - name: CORE_SERVICE
-          value: "utr-staging-core.default.svc.cluster.local:9102"
-        - name: WITH_PERMISSIONS
-          value: "true"
-        - name: ENABLE_PERMISSIONS
-          value: "true"
-        - name: RPG_PERMISSIONS_FLAG
-          value: "true"
-        - name: SERVICE_VERSION
-          value: "0.1.43" # {"$imagepolicy": "flux-system:utr-staging-gateway:tag"}
         - name: SERVICE_NAME
-          value: "rpg.gateway"
+          value: "rpg.notification"
         - name: SERVICE_ENV
-          value: "staging"
+          value: "prod"
         - name: TR_ENABLED
           value: "true"
         - name: TR_ENDPOINT
@@ -64,20 +48,20 @@ spec:
         - name: DB_SSL
           value: "true"
         - name: DB_NAME
-          value: "utr_staging"
+          value: "utro"
         - name: DB_HOST
-          value: "pg-staging-cluster.default.svc.cluster.local"
+          value: "pg-op-cluster.default.svc.cluster.local"
         - name: DB_PORT
           value: "5432"
         - name: DB_USER
           valueFrom:
             secretKeyRef:
-              name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
               key: username
         - name: DB_PASS
           valueFrom:
             secretKeyRef:
-              name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
               key: password
         livenessProbe:
           httpGet:
