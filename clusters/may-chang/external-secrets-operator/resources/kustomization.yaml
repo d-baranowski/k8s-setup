@@ -12,3 +12,5 @@ resources:
   - resend-production-secret.yaml
   - resend-staging-webhook-secret.yaml
   - resend-production-webhook-secret.yaml
+  - stripe-staging-webhook-secret.yaml
+  - stripe-prod-webhook-secret.yaml

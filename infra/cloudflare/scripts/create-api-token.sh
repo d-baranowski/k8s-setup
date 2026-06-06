@@ -3,6 +3,9 @@ set -euo pipefail
 
 # Creates a scoped Cloudflare API token for Terraform via the REST API.
 # No web UI forms needed — just your Global API Key.
+#
+# Permission IDs are hardcoded from the Cloudflare API.
+# If Cloudflare changes IDs, re-discover with: ./list-permission-groups.sh
 
 API="https://api.cloudflare.com/client/v4"
 
@@ -62,72 +65,44 @@ fi
 
 TOKEN_NAME="${TOKEN_NAME:-terraform-infra}"
 
-# --- Fetch permission groups and match by pattern ---
+# --- Hardcoded permission IDs ---
+# Discovered via: ./list-permission-groups.sh
+# Re-run that script if Cloudflare changes permission group IDs.
+
+# Zone-scoped permissions
+ZONE_PERMS='[
+  {"id": "c8fed203ed3043cba015a93ad1616f1f"},
+  {"id": "4755a26eedb94da69e1066d98aa820be"},
+  {"id": "3030687196b94b638145a3953da2b699"},
+  {"id": "43137f8d07884d3198dc0ee77ca6e79b"}
+]'
+# c8fed203 = Zone Read
+# 4755a26e = DNS Write
+# 30306871 = Zone Settings Write
+# 43137f8d = Firewall Services Write
+
+# Account-scoped permissions
+ACCOUNT_PERMS='[
+  {"id": "c07321b023e944ff818fec44d8203567"},
+  {"id": "959972745952452f8be2452be8cbb9f2"},
+  {"id": "56907406c3d548ed902070ec4df0e328"}
+]'
+# c07321b0 = Cloudflare Tunnel Write
+# 95997274 = Access: Apps and Policies Write (zone-scoped)
+# 56907406 = Account Rulesets Write
 
 echo ""
-echo "Fetching permission groups..."
-PERMS=$(curl -sf "$API/user/tokens/permission_groups?per_page=500" "${AUTH[@]}") || {
-  echo "ERROR: Failed to fetch permission groups." >&2
-  exit 1
-}
-
-# Match permissions by pattern — names are cosmetic and may change,
-# so we search by keyword rather than hardcoding exact strings.
-# Each entry: "search_pattern|scope|label"
-WANTED=(
-  "Zone Read|zone|Zone Read"
-  "DNS Write|zone|DNS Write"
-  "Zone Settings Write|zone|Zone Settings Write"
-  "Firewall Services Write|zone|Firewall Services Write"
-  "Tunnel Write|account|Tunnel Write"
-  "Access.*Apps.*Policies|account|Access: Apps & Policies"
-  "Account Rulesets Write|account|Account Rulesets Write"
-)
-
-ZONE_IDS_JSON="[]"
-ACCOUNT_IDS_JSON="[]"
-ERRORS=0
-
-for entry in "${WANTED[@]}"; do
-  IFS='|' read -r pattern scope label <<< "$entry"
-
-  id=$(echo "$PERMS" | jq -r --arg p "$pattern" \
-    '[.result[] | select(.name | test($p; "i"))] | sort_by(.name) | first | .id // empty')
-  name=$(echo "$PERMS" | jq -r --arg p "$pattern" \
-    '[.result[] | select(.name | test($p; "i"))] | sort_by(.name) | first | .name // empty')
-
-  if [[ -z "$id" ]]; then
-    echo "  MISS: no match for pattern '$pattern'" >&2
-    echo "        Candidates:" >&2
-    echo "$PERMS" | jq -r --arg p "${pattern%%[. ]*}" \
-      '[.result[] | select(.name | test($p; "i"))] | .[] | "          \(.id)  \(.name)"' >&2
-    ERRORS=$((ERRORS + 1))
-  else
-    echo "  OK:   $name ($id)"
-    if [[ "$scope" == "zone" ]]; then
-      ZONE_IDS_JSON=$(echo "$ZONE_IDS_JSON" | jq --arg id "$id" '. + [{"id": $id}]')
-    else
-      ACCOUNT_IDS_JSON=$(echo "$ACCOUNT_IDS_JSON" | jq --arg id "$id" '. + [{"id": $id}]')
-    fi
-  fi
-done
-
-if [[ $ERRORS -gt 0 ]]; then
-  echo ""
-  echo "ERROR: $ERRORS permission(s) could not be resolved." >&2
-  echo "Dumping all available permission groups to: /tmp/cf-permission-groups.json" >&2
-  echo "$PERMS" | jq '.result | sort_by(.name) | .[] | {id, name, scopes}' > /tmp/cf-permission-groups.json
-  echo "Review that file and update the WANTED patterns in this script." >&2
-  exit 1
-fi
+echo "Permissions:"
+echo "  Zone:    Zone Read, DNS Write, Zone Settings Write, Firewall Services Write"
+echo "  Account: Cloudflare Tunnel Write, Access: Apps and Policies Write, Account Rulesets Write"
 
 # --- Build the token payload ---
 
 PAYLOAD=$(jq -n \
   --arg name "$TOKEN_NAME" \
   --arg acct "$CF_ACCOUNT_ID" \
-  --argjson zone_perms "$ZONE_IDS_JSON" \
-  --argjson account_perms "$ACCOUNT_IDS_JSON" \
+  --argjson zone_perms "$ZONE_PERMS" \
+  --argjson account_perms "$ACCOUNT_PERMS" \
   '{
     name: $name,
     policies: [
@@ -179,7 +154,7 @@ echo "IMPORTANT: This value is shown ONLY ONCE."
 echo ""
 echo "Next steps:"
 echo "  export CLOUDFLARE_API_TOKEN=\"$TOKEN_VALUE\""
-echo "  echo 'cloudflare_account_id = \"$CF_ACCOUNT_ID\"' > terraform.tfvars"
+echo "  export TF_VAR_cloudflare_api_token=\"$TOKEN_VALUE\""
 
 echo ""
 echo "Verifying token..."

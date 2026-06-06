@@ -75,6 +75,11 @@ spec:
             secretKeyRef:
               name: stripe-secret-key
               key: value
+        - name: STRIPE_WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: stripe-prod-webhook-secret
+              key: value
         livenessProbe:
           httpGet:
             path: /live
