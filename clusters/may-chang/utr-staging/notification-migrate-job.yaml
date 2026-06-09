@@ -18,7 +18,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: migrate
-        image: ghcr.io/inspiration-particle/utro-notification:0.1.50 # {"$imagepolicy": "flux-system:utr-staging-notification"}
+        image: ghcr.io/inspiration-particle/utro-notification:0.1.51 # {"$imagepolicy": "flux-system:utr-staging-notification"}
         command: ["/app/notification"]
         args: ["-migrate=true"]
         env:

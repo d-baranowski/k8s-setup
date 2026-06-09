@@ -40,7 +40,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: migrate
-        image: ghcr.io/inspiration-particle/utro-core:0.1.50 # {"$imagepolicy": "flux-system:utr-staging-core"}
+        image: ghcr.io/inspiration-particle/utro-core:0.1.51 # {"$imagepolicy": "flux-system:utr-staging-core"}
         env:
         - name: MIGRATE
           value: "true"
