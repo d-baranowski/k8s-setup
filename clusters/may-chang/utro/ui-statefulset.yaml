@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: ui
-        image: ghcr.io/inspiration-particle/utro-ui:0.1.20
+        image: ghcr.io/inspiration-particle/utro-ui:0.1.56
         ports:
         - containerPort: 3000
           name: http
