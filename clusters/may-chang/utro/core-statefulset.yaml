@@ -43,6 +43,8 @@ spec:
           value: "rpg.core"
         - name: SERVICE_ENV
           value: "prod"
+        - name: SERVICE_VERSION
+          value: "0.1.56"
         - name: TR_ENABLED
           value: "true"
         - name: TR_ENDPOINT
