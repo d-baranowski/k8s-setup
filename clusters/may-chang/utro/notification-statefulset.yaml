@@ -69,6 +69,21 @@ spec:
               key: value
         - name: PUBLIC_WEBHOOK_URL
           value: "https://utro.inspiration-particle.com/webhook"
+        - name: ACCOUNT_SID
+          valueFrom:
+            secretKeyRef:
+              name: twilio-prod-sid
+              key: value
+        - name: AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: twilio-prod-token
+              key: value
+        - name: FROM_PHONE
+          valueFrom:
+            secretKeyRef:
+              name: twilio-prod-phone
+              key: value
         - name: DB_USER
           valueFrom:
             secretKeyRef:

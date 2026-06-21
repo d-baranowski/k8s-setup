@@ -71,6 +71,21 @@ spec:
               key: value
         - name: PUBLIC_WEBHOOK_URL
           value: "https://utro-test.inspi.cloud/webhook"
+        - name: ACCOUNT_SID
+          valueFrom:
+            secretKeyRef:
+              name: twilio-staging-sid
+              key: value
+        - name: AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: twilio-staging-token
+              key: value
+        - name: FROM_PHONE
+          valueFrom:
+            secretKeyRef:
+              name: twilio-staging-phone
+              key: value
         - name: DB_USER
           valueFrom:
             secretKeyRef:

@@ -14,3 +14,9 @@ resources:
   - resend-production-webhook-secret.yaml
   - stripe-staging-webhook-secret.yaml
   - stripe-prod-webhook-secret.yaml
+  - twilio-staging-sid-secret.yaml
+  - twilio-staging-token-secret.yaml
+  - twilio-staging-phone-secret.yaml
+  - twilio-prod-sid-secret.yaml
+  - twilio-prod-token-secret.yaml
+  - twilio-prod-phone-secret.yaml
