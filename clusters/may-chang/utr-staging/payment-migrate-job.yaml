@@ -36,7 +36,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: migrate
-        image: ghcr.io/inspiration-particle/utro-payment:0.1.58 # {"$imagepolicy": "flux-system:utr-staging-payment"}
+        image: ghcr.io/inspiration-particle/utro-payment:0.1.59 # {"$imagepolicy": "flux-system:utr-staging-payment"}
         # Bypass the image's `/bin/sh -c /app/payment` ENTRYPOINT so the
         # `-migrate=true` flag reaches the Go binary directly.
         command: ["/app/payment"]
