@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: utr-staging-core-event
+  namespace: default
+  labels:
+    app: utr-staging-core-event
+spec:
+  serviceName: utr-staging-core-event
+  # Single replica: core-event owns one logical replication slot
+  # (core_event_slot). A second replica would contend for the same slot.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: utr-staging-core-event
+  template:
+    metadata:
+      labels:
+        app: utr-staging-core-event
+    spec:
+      containers:
+      - name: core-event
+        image: ghcr.io/inspiration-particle/utro-core-event:0.1.56 # {"$imagepolicy": "flux-system:utr-staging-core-event"}
+        # Health-only: core-event exposes no API. It consumes WAL and publishes
+        # to pgmq, so nothing calls it — no Service is defined.
+        ports:
+        - containerPort: 18010
+          name: health
+        env:
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: HEALTH_PORT
+          value: "18010"
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: SERVICE_VERSION
+          value: "0.1.56" # {"$imagepolicy": "flux-system:utr-staging-core-event:tag"}
+        - name: SERVICE_NAME
+          value: "rpg.core-event"
+        - name: SERVICE_ENV
+          value: "staging"
+        - name: TR_ENABLED
+          value: "true"
+        - name: TR_ENDPOINT
+          value: "otel-collector.observability.svc.cluster.local:4318"
+        - name: TR_HTTPS
+          value: "false"
+        - name: DB_TRACE
+          value: "true"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_NAME
+          value: "utr_staging"
+        - name: DB_HOST
+          value: "pg-staging-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_SEARCH_PATH
+          value: "core,public"
+        - name: WAL_PUBLICATION_NAME
+          value: "core_event_pub"
+        - name: WAL_SLOT_NAME
+          value: "core_event_slot"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: core-event.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: core-event.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: password
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: health
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: health
+          initialDelaySeconds: 60
+          periodSeconds: 5

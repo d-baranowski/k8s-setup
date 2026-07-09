@@ -12,6 +12,13 @@ spec:
     parameters:
       shared_preload_libraries: "pg_cron"
       cron.database_name: "utr_staging"
+      # Logical replication for the core-event CDC service (publication
+      # core_event_pub, slot core_event_slot via pgoutput). Mirrors the dev
+      # postgres settings in utro/docker-compose.yml. Changing wal_level
+      # forces a Postgres restart on the next operator reconcile.
+      wal_level: "logical"
+      max_wal_senders: "10"
+      max_replication_slots: "10"
 
   patroni:
     pg_hba:
@@ -19,22 +26,27 @@ spec:
       - "local   all             postgres                                md5"
       - "local   all             utr_staging_user                        md5"
       - "local   all             utr_staging_migrator                    md5"
+      - "local   all             core_event                              md5"
 
       # ANY host, no-SSL explicitly allowed (matches: no encryption)
       - "hostnossl all           postgres             0.0.0.0/0          md5"
       - "hostnossl all           utr_staging_user     0.0.0.0/0          md5"
       - "hostnossl all           utr_staging_migrator 0.0.0.0/0          md5"
+      - "hostnossl all           core_event           0.0.0.0/0          md5"
       - "hostnossl all           postgres             ::/0               md5"
       - "hostnossl all           utr_staging_user     ::/0               md5"
       - "hostnossl all           utr_staging_migrator ::/0               md5"
+      - "hostnossl all           core_event           ::/0               md5"
 
       # ANY host, SSL also allowed
       - "hostssl all             postgres             0.0.0.0/0          md5"
       - "hostssl all             utr_staging_user     0.0.0.0/0          md5"
       - "hostssl all             utr_staging_migrator 0.0.0.0/0          md5"
+      - "hostssl all             core_event           0.0.0.0/0          md5"
       - "hostssl all             postgres             ::/0               md5"
       - "hostssl all             utr_staging_user     ::/0               md5"
       - "hostssl all             utr_staging_migrator ::/0               md5"
+      - "hostssl all             core_event           ::/0               md5"
 
   volume:
     size: 10Gi
@@ -45,6 +57,11 @@ spec:
   users:
     utr_staging_user: [CREATEROLE]
     utr_staging_migrator: [BYPASSRLS, CREATEROLE]
+    # Dedicated CDC role for core-event: REPLICATION to own the logical slot,
+    # BYPASSRLS to read the FORCE-RLS core tables its transformers enrich from.
+    # Table/pgmq grants are applied by the bootstrap service (core_event_grants).
+    # Name is env-agnostic so the same manifest carries to prod.
+    core_event: [LOGIN, REPLICATION, BYPASSRLS]
 
   databases:
     utr_staging: utr_staging_migrator
