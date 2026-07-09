@@ -32,7 +32,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: migrate
-        image: ghcr.io/inspiration-particle/utro-core-event:0.1.58 # {"$imagepolicy": "flux-system:utr-staging-core-event"}
+        image: ghcr.io/inspiration-particle/utro-core-event:0.1.59 # {"$imagepolicy": "flux-system:utr-staging-core-event"}
         command: ["/app/core-event"]
         args: ["-migrate=true"]
         env:
