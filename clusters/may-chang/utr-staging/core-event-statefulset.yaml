@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: core-event
-        image: ghcr.io/inspiration-particle/utro-core-event:0.1.56 # {"$imagepolicy": "flux-system:utr-staging-core-event"}
+        image: ghcr.io/inspiration-particle/utro-core-event:0.1.58 # {"$imagepolicy": "flux-system:utr-staging-core-event"}
         # Health-only: core-event exposes no API. It consumes WAL and publishes
         # to pgmq, so nothing calls it — no Service is defined.
         ports:
@@ -34,7 +34,7 @@ spec:
         - name: LOG_LEVEL
           value: "debug"
         - name: SERVICE_VERSION
-          value: "0.1.56" # {"$imagepolicy": "flux-system:utr-staging-core-event:tag"}
+          value: "0.1.58" # {"$imagepolicy": "flux-system:utr-staging-core-event:tag"}
         - name: SERVICE_NAME
           value: "rpg.core-event"
         - name: SERVICE_ENV
