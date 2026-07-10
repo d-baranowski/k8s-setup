@@ -41,6 +41,8 @@ spec:
           value: "rpg.payment"
         - name: SERVICE_ENV
           value: "staging"
+        - name: PGMQ_ENABLED
+          value: "true"
         - name: TR_ENABLED
           value: "true"
         - name: TR_ENDPOINT
