@@ -32,7 +32,7 @@ spec:
         - name: SERVICE_ENV
           value: "prod"
         - name: SERVICE_VERSION
-          value: "0.1.56"
+          value: "0.1.61"
         - name: VERSION_CHECK_URLS
           value: "core=utro-core:18007,gateway=utro-gateway:18007,payment=utro-payment:18007,notification=utro-notification:18007"
         - name: PORT

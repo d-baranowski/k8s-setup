@@ -38,7 +38,7 @@ spec:
         - name: SERVICE_ENV
           value: "prod"
         - name: SERVICE_VERSION
-          value: "0.1.56"
+          value: "0.1.61"
         - name: TR_ENABLED
           value: "true"
         - name: TR_ENDPOINT
