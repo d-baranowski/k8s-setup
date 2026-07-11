@@ -6,6 +6,8 @@ resources:
   - core-statefulset.yaml
   - core-service.yaml
   - core-migrate-job.yaml
+  - core-event-statefulset.yaml
+  - core-event-migrate-job.yaml
   - ui-statefulset.yaml
   - ui-service.yaml
   - utro-cloudflare-tunnel-secret.yaml

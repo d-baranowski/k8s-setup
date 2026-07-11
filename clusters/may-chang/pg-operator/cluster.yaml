@@ -12,6 +12,14 @@ spec:
     parameters:
       shared_preload_libraries: "pg_cron"
       cron.database_name: "utro"
+      # Logical replication for the core-event CDC service (publication
+      # core_event_pub, slot core_event_slot via pgoutput). Mirrors
+      # pg-staging-cluster. Changing wal_level forces a Postgres restart on the
+      # next operator reconcile (brief blip for all tenants on this shared
+      # cluster: utro/mattermost/n8n) — apply in a maintenance window.
+      wal_level: "logical"
+      max_wal_senders: "10"
+      max_replication_slots: "10"
 
   patroni:
     pg_hba:
@@ -20,26 +28,31 @@ spec:
       - "local   all             utro_user                               md5"
       - "local   all             n8n_user                                md5"
       - "local   all             mattermost_user                         md5"
+      - "local   all             core_event                              md5"
 
       # ANY host, no-SSL explicitly allowed (matches: no encryption)
       - "hostnossl all           postgres         0.0.0.0/0              md5"
       - "hostnossl all           utro_user        0.0.0.0/0              md5"
       - "hostnossl all           n8n_user         0.0.0.0/0              md5"
       - "hostnossl all           mattermost_user  0.0.0.0/0              md5"
+      - "hostnossl all           core_event       0.0.0.0/0              md5"
       - "hostnossl all           postgres         ::/0                   md5"
       - "hostnossl all           utro_user        ::/0                   md5"
       - "hostnossl all           n8n_user         ::/0                   md5"
       - "hostnossl all           mattermost_user  ::/0                   md5"
+      - "hostnossl all           core_event       ::/0                   md5"
 
       # ANY host, SSL also allowed
       - "hostssl all            postgres         0.0.0.0/0              md5"
       - "hostssl all            utro_user        0.0.0.0/0              md5"
       - "hostssl all            n8n_user         0.0.0.0/0              md5"
       - "hostssl all            mattermost_user  0.0.0.0/0              md5"
+      - "hostssl all            core_event       0.0.0.0/0              md5"
       - "hostssl all            postgres         ::/0                   md5"
       - "hostssl all            utro_user        ::/0                   md5"
       - "hostssl all            n8n_user         ::/0                   md5"
       - "hostssl all            mattermost_user  ::/0                   md5"
+      - "hostssl all            core_event       ::/0                   md5"
 
   env:
     - name: WAL_S3_BUCKET
@@ -66,6 +79,12 @@ spec:
     n8n_user: [CREATEROLE]
     utro_user: [CREATEROLE]
     mattermost_user: [CREATEROLE]
+    # Dedicated CDC role for core-event: REPLICATION to own the logical slot,
+    # BYPASSRLS to read the FORCE-RLS core tables its transformers enrich from.
+    # Table/pgmq grants are applied by the core migrate job (core_event_grants
+    # migration), so no bootstrap service is needed in prod. → creates secret
+    # core-event.pg-op-cluster.credentials.postgresql.acid.zalan.do
+    core_event: [LOGIN, REPLICATION, BYPASSRLS]
 
   databases:
     n8n: n8n_user

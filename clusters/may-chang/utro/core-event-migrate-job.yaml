@@ -1,0 +1,59 @@
+# One-shot DB migration Job for the core-event CDC service.
+#
+# Runs `core-event -migrate=true`, which applies app/core-event/db/*.sql via
+# goose: sets REPLICA IDENTITY FULL on core.session/core.therapist and creates
+# the `core_event_pub` publication. Those statements require table ownership,
+# so this Job connects as utro_user (the prod DB owner that runs migrations),
+# not the runtime core_event role.
+#
+# Depends on core's tables existing: if utro-core-migrate hasn't created
+# core.session/core.therapist yet, this fails and retries (backoffLimit) until
+# they're present.
+#
+# Prod has no Flux image automation — the image tag is bumped uniformly by
+# bump-version.sh. `kustomize.toolkit.fluxcd.io/force: enabled` delete-recreates
+# the Job on template change (Job pod templates are immutable).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: utro-core-event-migrate
+  namespace: default
+  labels:
+    app: utro-core-event-migrate
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: utro-core-event-migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrate
+        image: ghcr.io/inspiration-particle/utro-core-event:0.1.61
+        command: ["/app/core-event"]
+        args: ["-migrate=true"]
+        env:
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_NAME
+          value: "utro"
+        - name: DB_HOST
+          value: "pg-op-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: password

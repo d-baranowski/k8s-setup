@@ -4,7 +4,7 @@ set -euo pipefail
 dir="${0:A:h}"
 
 # Discover the current version by grabbing the first utro-* image tag we find.
-current="$(grep -hEo 'ghcr\.io/inspiration-particle/utro-[a-z]+:[0-9]+\.[0-9]+\.[0-9]+' "$dir"/*.yaml \
+current="$(grep -hEo 'ghcr\.io/inspiration-particle/utro-[a-z-]+:[0-9]+\.[0-9]+\.[0-9]+' "$dir"/*.yaml \
   | head -1 | awk -F: '{print $NF}')"
 
 if [[ -z "$current" ]]; then
@@ -38,7 +38,7 @@ fi
 # Works on macOS (BSD sed) and Linux (GNU sed) by writing to a temp file.
 for f in "$dir"/*.yaml; do
   tmp="$(mktemp)"
-  sed -E "s|(ghcr\.io/inspiration-particle/utro-[a-z]+):[^[:space:]]+|\1:${version}|g" "$f" > "$tmp"
+  sed -E "s|(ghcr\.io/inspiration-particle/utro-[a-z-]+):[^[:space:]]+|\1:${version}|g" "$f" > "$tmp"
   if ! cmp -s "$f" "$tmp"; then
     mv "$tmp" "$f"
     echo "updated $(basename "$f")"
