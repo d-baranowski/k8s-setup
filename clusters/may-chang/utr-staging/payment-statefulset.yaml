@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: payment
-        image: ghcr.io/inspiration-particle/utro-payment:0.1.61 # {"$imagepolicy": "flux-system:utr-staging-payment"}
+        image: ghcr.io/inspiration-particle/utro-payment:0.1.62 # {"$imagepolicy": "flux-system:utr-staging-payment"}
         ports:
         - containerPort: 9102
           name: api
@@ -36,7 +36,7 @@ spec:
         - name: RPG_PERMISSIONS_FLAG
           value: "true"
         - name: SERVICE_VERSION
-          value: "0.1.61" # {"$imagepolicy": "flux-system:utr-staging-payment:tag"}
+          value: "0.1.62" # {"$imagepolicy": "flux-system:utr-staging-payment:tag"}
         - name: SERVICE_NAME
           value: "rpg.payment"
         - name: SERVICE_ENV
