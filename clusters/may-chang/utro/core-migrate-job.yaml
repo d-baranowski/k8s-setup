@@ -40,7 +40,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: migrate
-        image: ghcr.io/inspiration-particle/utro-core:0.1.63
+        image: ghcr.io/inspiration-particle/utro-core:0.1.64
         env:
         - name: MIGRATE
           value: "true"
