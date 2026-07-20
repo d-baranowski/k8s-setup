@@ -38,7 +38,12 @@ fi
 # Works on macOS (BSD sed) and Linux (GNU sed) by writing to a temp file.
 for f in "$dir"/*.yaml; do
   tmp="$(mktemp)"
+  # 1) image tags: ghcr.io/inspiration-particle/utro-<name>:<tag>
   sed -E "s|(ghcr\.io/inspiration-particle/utro-[a-z-]+):[^[:space:]]+|\1:${version}|g" "$f" > "$tmp"
+  # 2) SERVICE_VERSION env value — NOT an image ref, so the sed above misses it.
+  #    Keep it in lockstep with the release; prod has no Flux imagepolicy that
+  #    would otherwise update it, so it silently drifts if we don't.
+  perl -0pi -e "s/(name:\s*SERVICE_VERSION\s*\n\s*value:\s*)\"[^\"]*\"/\${1}\"${version}\"/g" "$tmp"
   if ! cmp -s "$f" "$tmp"; then
     mv "$tmp" "$f"
     echo "updated $(basename "$f")"

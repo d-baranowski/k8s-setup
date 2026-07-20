@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: payment
-        image: ghcr.io/inspiration-particle/utro-payment:0.1.61
+        image: ghcr.io/inspiration-particle/utro-payment:0.1.63
         ports:
         - containerPort: 9102
           name: api
@@ -42,7 +42,7 @@ spec:
         - name: PGMQ_ENABLED
           value: "true"
         - name: SERVICE_VERSION
-          value: "0.1.61"
+          value: "0.1.63"
         - name: TR_ENABLED
           value: "true"
         - name: TR_ENDPOINT
