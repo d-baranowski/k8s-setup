@@ -49,7 +49,10 @@ import {
   id = "danb-ubuntu-k0s/iam.googleapis.com"
 }
 
-# Pubsub API is new — no import needed.
+import {
+  to = google_project_service.pubsub
+  id = "danb-ubuntu-k0s/pubsub.googleapis.com"
+}
 
 # ─── Environment tag ────────────────────────────────────────────────────────
 
@@ -120,7 +123,7 @@ import {
   id = "b/danb-ubuntu-k0s-ci-images roles/storage.objectViewer serviceAccount:ci-fleet@danb-ubuntu-k0s.iam.gserviceaccount.com"
 }
 
-# ─── Existing 50 PLN budget ────────────────────────────────────────────────
+# ─── Existing 100 PLN budget ───────────────────────────────────────────────
 # Note: import ID for billing budgets is the full resource path.
 
 import {
@@ -128,6 +131,33 @@ import {
   id = "billingAccounts/01E9FF-961B9C-A17147/budgets/b659b4d2-ecbd-452b-b6d4-f28f8e58ea83"
 }
 
-# google_billing_budget.ci_fleet_nuclear is NEW — no import.
-# google_pubsub_topic.* are NEW — no import.
-# google_monitoring_notification_channel.operator_email is NEW — no import.
+# ─── Budget alerting stack (RECOVERED 2026-07-16) ──────────────────────────
+# These were originally written as "NEW — no import" (they didn't exist when
+# ci-fleet-budgets.tf was first authored). A subsequent `terraform apply`
+# created them for real, but that apply's local state was later lost — so
+# they now exist in GCP with no state tracking them. Without these import
+# blocks, `terraform plan` shows them as `+ create`, which would create
+# DUPLICATE budgets/notification-channel and ERROR on the pub/sub topics
+# (topic names are unique per project). IDs resolved via:
+#   gcloud billing budgets list --billing-account=01E9FF-961B9C-A17147
+#   gcloud pubsub topics list / gcloud beta monitoring channels list
+
+import {
+  to = google_pubsub_topic.budget_alerts
+  id = "projects/danb-ubuntu-k0s/topics/budget-alerts"
+}
+
+import {
+  to = google_pubsub_topic.budget_nuclear
+  id = "projects/danb-ubuntu-k0s/topics/budget-nuclear"
+}
+
+import {
+  to = google_monitoring_notification_channel.operator_email
+  id = "projects/danb-ubuntu-k0s/notificationChannels/4375434328520302034"
+}
+
+import {
+  to = google_billing_budget.ci_fleet_nuclear
+  id = "billingAccounts/01E9FF-961B9C-A17147/budgets/65cee99a-fe84-457b-ac28-6dcdcb5d0ed8"
+}

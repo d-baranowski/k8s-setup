@@ -3,7 +3,7 @@
 # Two-tier safety net:
 #
 #   ┌──────────────┐   threshold     ┌────────────────────────┐
-#   │  50 PLN      │ ─── 50/90/100% ─→│ email (admin)           │
+#   │  100 PLN     │ ─── 50/90/100% ─→│ email (admin)           │
 #   │  monthly     │                  │ Pub/Sub: budget-alerts  │ ──→ (soft-stop:
 #   └──────────────┘                  └────────────────────────┘      Cloud Fn
 #                                                                       sets
@@ -74,7 +74,7 @@ resource "google_monitoring_notification_channel" "operator_email" {
   description = "Receives budget alert emails for the utro CI fleet — see ci-fleet-budgets.tf"
 }
 
-# ─── Budget 1: 50 PLN soft alert ────────────────────────────────────────────
+# ─── Budget 1: 100 PLN soft alert ───────────────────────────────────────────
 # Pre-existing, originally created by bootstrap-gcp.sh. Imported into
 # TF state — see ci-fleet-imports.tf.
 
@@ -89,7 +89,7 @@ resource "google_billing_budget" "ci_fleet_soft" {
   amount {
     specified_amount {
       currency_code = "PLN"
-      units         = "50"
+      units         = "100"
     }
   }
 
@@ -122,7 +122,7 @@ resource "google_billing_budget" "ci_fleet_soft" {
 # Single hard threshold at 100% of 500 PLN — the kill-switch trigger.
 # Forecast-basis rule omitted on purpose: forecasted-spend can swing
 # wildly mid-month and we want the nuclear path to fire only on actual
-# spend, not projection. The 50 PLN budget already handles forecast
+# spend, not projection. The 100 PLN budget already handles forecast
 # warnings.
 
 resource "google_billing_budget" "ci_fleet_nuclear" {

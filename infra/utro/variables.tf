@@ -50,7 +50,11 @@ variable "cluster_secret_store_name" {
 variable "aws_region" {
     description = "AWS region to create resources in"
     type        = string
-    default     = "eu-west-1"
+    # eu-central-1 is where the utro-a253e7cf-backups bucket (and the rest of
+    # this stack's AWS resources) actually live. The old eu-west-1 default was
+    # wrong and caused `import` blocks to report the bucket as non-existent —
+    # keep this in sync with the real region or state recovery breaks again.
+    default     = "eu-central-1"
 }
 
 variable "aws_profile" {

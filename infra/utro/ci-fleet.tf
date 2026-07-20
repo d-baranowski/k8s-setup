@@ -2,8 +2,10 @@
 #
 # Translates utro/tools/ci/bootstrap-gcp.sh into idempotent Terraform.
 # Resources here back the GCE Jenkins plugin running on may-chang —
-# provisioning ephemeral spot VMs from a NixOS image family for the
-# Cypress e2e test shards.
+# provisioning ephemeral on-demand VMs from a NixOS image family for the
+# Cypress e2e test shards. (Formerly spot VMs; switched to on-demand
+# because the plugin auto-restarts the whole build on preemption with no
+# opt-out — see preemptible: false in nixos-workbenches jenkins-casc.nix.)
 #
 # Source-of-truth ownership boundary:
 #   ✓ Terraform owns: APIs, custom IAM roles, service accounts, IAM
@@ -106,7 +108,7 @@ resource "google_project_iam_custom_role" "ci_fleet_minimal" {
   role_id = "utroCiFleetMinimal"
   title   = "utro CI Fleet (minimal)"
   description = trimspace(<<-EOD
-    Minimum perms for utro's GCE Jenkins plugin: create+delete spot
+    Minimum perms for utro's GCE Jenkins plugin: create+delete
     VMs from a family image, set metadata/tags/labels at create,
     fetch guest attributes for host-key check. No SSH, no image
     management, no SA attach. SoT: ci-fleet.tf.
@@ -204,7 +206,7 @@ resource "google_service_account" "ci_fleet" {
   project      = local.ci_fleet_project
   account_id   = "ci-fleet"
   display_name = "Utro CI ephemeral fleet"
-  description  = "Used by the GCE Jenkins plugin (on may-chang) to provision spot Cypress workers"
+  description  = "Used by the GCE Jenkins plugin (on may-chang) to provision Cypress workers"
 }
 
 resource "google_service_account" "firewall_updater" {
