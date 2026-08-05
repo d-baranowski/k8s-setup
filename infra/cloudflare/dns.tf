@@ -47,6 +47,25 @@ resource "cloudflare_record" "utro_cname" {
   ttl     = 1
 }
 
+# Customer-facing app + its API, both fronted by the utro tunnel.
+resource "cloudflare_record" "customer_app_cname" {
+  zone_id = local.zone_inspiration_particle
+  name    = "app"
+  content = "${cloudflare_zero_trust_tunnel_cloudflared.utro.id}.cfargotunnel.com"
+  type    = "CNAME"
+  proxied = true
+  ttl     = 1
+}
+
+resource "cloudflare_record" "customer_api_cname" {
+  zone_id = local.zone_inspiration_particle
+  name    = "customer-api"
+  content = "${cloudflare_zero_trust_tunnel_cloudflared.utro.id}.cfargotunnel.com"
+  type    = "CNAME"
+  proxied = true
+  ttl     = 1
+}
+
 resource "cloudflare_record" "www_cname" {
   zone_id = local.zone_inspiration_particle
   name    = "www"

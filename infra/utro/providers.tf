@@ -42,3 +42,23 @@ provider "google" {
   }
 }
 
+# google-beta mirrors the google provider. Firebase / Identity Platform resources
+# (google_firebase_project, google_firebase_web_app, google_identity_platform_*) are
+# only available in the beta provider. It needs the same billing_project /
+# user_project_override as google or Firebase API calls 403 with SERVICE_DISABLED.
+provider "google-beta" {
+  project = var.gcp_project_id
+  region  = var.gcp_region
+
+  billing_project       = var.gcp_project_id
+  user_project_override = true
+
+  default_labels = {
+    application = "utro"
+    owner       = "k8s-setup-infra-utro"
+    utro        = "true"
+    terraform   = "true"
+    github      = "k8s-setup"
+  }
+}
+

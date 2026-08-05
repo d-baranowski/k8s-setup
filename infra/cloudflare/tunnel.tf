@@ -43,24 +43,51 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "utro" {
       hostname = "utro.inspiration-particle.com"
       service  = "http://utro-ui.default.svc.cluster.local:3000"
       origin_request {
-        connect_timeout       = "30s"
+        connect_timeout        = "30s"
         keep_alive_connections = 100
-        keep_alive_timeout    = "1m30s"
-        proxy_address         = "127.0.0.1"
-        tcp_keep_alive        = "30s"
-        tls_timeout           = "10s"
+        keep_alive_timeout     = "1m30s"
+        proxy_address          = "127.0.0.1"
+        tcp_keep_alive         = "30s"
+        tls_timeout            = "10s"
       }
     }
     ingress_rule {
       hostname = "utro-test.inspi.cloud"
       service  = "http://utr-staging-ui.default.svc.cluster.local:3000"
       origin_request {
-        connect_timeout       = "30s"
+        connect_timeout        = "30s"
         keep_alive_connections = 100
-        keep_alive_timeout    = "1m30s"
-        proxy_address         = "127.0.0.1"
-        tcp_keep_alive        = "30s"
-        tls_timeout           = "10s"
+        keep_alive_timeout     = "1m30s"
+        proxy_address          = "127.0.0.1"
+        tcp_keep_alive         = "30s"
+        tls_timeout            = "10s"
+      }
+    }
+    # Customer app API (Connect/gRPC). Public — Firebase Bearer tokens are verified by
+    # the customer-gateway itself; Cloudflare Access is bypassed for this host (access.tf).
+    ingress_rule {
+      hostname = "customer-api.inspiration-particle.com"
+      service  = "http://utro-customer-gateway.default.svc.cluster.local:9998"
+      origin_request {
+        connect_timeout        = "30s"
+        keep_alive_connections = 100
+        keep_alive_timeout     = "1m30s"
+        proxy_address          = "127.0.0.1"
+        tcp_keep_alive         = "30s"
+        tls_timeout            = "10s"
+      }
+    }
+    # Customer web/mobile app.
+    ingress_rule {
+      hostname = "app.inspiration-particle.com"
+      service  = "http://utro-customer-ui.default.svc.cluster.local:3000"
+      origin_request {
+        connect_timeout        = "30s"
+        keep_alive_connections = 100
+        keep_alive_timeout     = "1m30s"
+        proxy_address          = "127.0.0.1"
+        tcp_keep_alive         = "30s"
+        tls_timeout            = "10s"
       }
     }
     ingress_rule {
