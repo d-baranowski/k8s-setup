@@ -3,6 +3,10 @@ kind: Kustomization
 resources:
   - gateway-statefulset.yaml
   - gateway-service.yaml
+  - customer-gateway-statefulset.yaml
+  - customer-gateway-service.yaml
+  - customer-ui-statefulset.yaml
+  - customer-ui-service.yaml
   - core-statefulset.yaml
   - core-service.yaml
   - core-migrate-job.yaml

@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: utro-customer-gateway
+  namespace: default
+  labels:
+    app: utro-customer-gateway
+spec:
+  serviceName: utro-customer-gateway
+  replicas: 2
+  selector:
+    matchLabels:
+      app: utro-customer-gateway
+  template:
+    metadata:
+      labels:
+        app: utro-customer-gateway
+    spec:
+      containers:
+      - name: customer-gateway
+        image: ghcr.io/inspiration-particle/utro-customer-gateway:0.0.1
+        ports:
+        - containerPort: 9998
+          name: api
+        - containerPort: 18008
+          name: health
+        env:
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: HEALTH_PORT
+          value: "18008"
+        - name: API_PORT
+          value: "9998"
+        - name: USER
+          value: "postgres"
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: CORE_SERVICE
+          value: "utro-core.default.svc.cluster.local:9102"
+        # Lock CORS to the customer web origin (Bearer auth, so no credentialed cookies).
+        - name: API_CORS
+          value: "https://app.inspiration-particle.com"
+        - name: WITH_PERMISSIONS
+          value: "true"
+        - name: ENABLE_PERMISSIONS
+          value: "true"
+        - name: RPG_PERMISSIONS_FLAG
+          value: "true"
+        - name: SERVICE_NAME
+          value: "rpg.customer-gateway"
+        - name: SERVICE_ENV
+          value: "prod"
+        - name: SERVICE_VERSION
+          value: "0.0.1"
+        # Firebase / Identity Platform. FIREBASE_PROJECT_ID must match the project the
+        # customer ID tokens are issued for (the same project as infra/utro firebase.tf).
+        - name: FIREBASE_PROJECT_ID
+          value: "REPLACE_WITH_GCP_PROJECT_ID"
+        - name: FIREBASE_CHECK_REVOKED
+          value: "true"
+        - name: FIREBASE_CREDENTIALS_FILE
+          value: "/var/secrets/firebase/credentials.json"
+        - name: TR_ENABLED
+          value: "true"
+        - name: TR_ENDPOINT
+          value: "otel-collector.observability.svc.cluster.local:4318"
+        - name: TR_HTTPS
+          value: "false"
+        - name: DB_TRACE
+          value: "true"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_NAME
+          value: "utro"
+        - name: DB_HOST
+          value: "pg-op-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: password
+        volumeMounts:
+        - name: firebase-creds
+          mountPath: /var/secrets/firebase
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: health
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: health
+          initialDelaySeconds: 60
+          periodSeconds: 5
+      volumes:
+      - name: firebase-creds
+        secret:
+          secretName: utro-customer-gateway-firebase-admin
+          items:
+          - key: credentials.json
+            path: credentials.json

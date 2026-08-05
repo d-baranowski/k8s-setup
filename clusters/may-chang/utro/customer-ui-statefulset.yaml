@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: utro-customer-ui
+  namespace: default
+  labels:
+    app: utro-customer-ui
+spec:
+  serviceName: utro-customer-ui
+  replicas: 2
+  selector:
+    matchLabels:
+      app: utro-customer-ui
+  template:
+    metadata:
+      labels:
+        app: utro-customer-ui
+    spec:
+      containers:
+      - name: customer-ui
+        # NEXT_PUBLIC_* (customer-gateway URL, Firebase web config) are baked at
+        # build time via CI build-args, not runtime env — see the Dockerfile.
+        image: ghcr.io/inspiration-particle/utro-customer-ui:0.0.1
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        - name: NEXT_TELEMETRY_DISABLED
+          value: "1"
+        # TCP probes: this is a public app with no /api health route (API routes
+        # are omitted so the same bundle can static-export for Capacitor).
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5

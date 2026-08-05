@@ -47,6 +47,25 @@ variable "cluster_secret_store_name" {
   default     = "google-secrets"
 }
 
+variable "firebase_authorized_domains" {
+  description = "Domains allowed to complete Firebase auth flows (email-link continueUrl, OAuth redirect). Include the customer web host and localhost for dev."
+  type        = list(string)
+  default     = ["localhost"]
+}
+
+variable "google_oauth_client_id" {
+  description = "OAuth 2.0 client ID for Google sign-in. Leave empty to skip provisioning the Google IdP."
+  type        = string
+  default     = ""
+}
+
+variable "google_oauth_client_secret" {
+  description = "OAuth 2.0 client secret for Google sign-in."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "aws_region" {
     description = "AWS region to create resources in"
     type        = string
