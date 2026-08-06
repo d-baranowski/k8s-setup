@@ -15,9 +15,9 @@ gcp_project_id = "your-gcp-project-id"
 # Firebase / Identity Platform (customer auth)
 # Domains allowed to complete auth flows (email-link continueUrl + OAuth redirect).
 firebase_authorized_domains = ["localhost", "app.your-domain.com"]
-# Google sign-in OAuth client (leave empty to skip the Google IdP for now).
-google_oauth_client_id     = ""
-google_oauth_client_secret = ""
+# Google sign-in. The OAuth web-client id/secret are read from Secret Manager,
+# NOT stored here — run scripts/put-google-oauth-secrets.sh once, then set true.
+enable_google_signin = false
 
 # Set to true to create an IAM user and push its access keys to GCP Secret Manager
 create_user = false

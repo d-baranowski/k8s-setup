@@ -53,17 +53,10 @@ variable "firebase_authorized_domains" {
   default     = ["localhost"]
 }
 
-variable "google_oauth_client_id" {
-  description = "OAuth 2.0 client ID for Google sign-in. Leave empty to skip provisioning the Google IdP."
-  type        = string
-  default     = ""
-}
-
-variable "google_oauth_client_secret" {
-  description = "OAuth 2.0 client secret for Google sign-in."
-  type        = string
-  default     = ""
-  sensitive   = true
+variable "enable_google_signin" {
+  description = "Enable the Google sign-in IdP. Requires the OAuth web-client id/secret to already be in Secret Manager (run scripts/put-google-oauth-secrets.sh once first)."
+  type        = bool
+  default     = false
 }
 
 variable "aws_region" {
