@@ -47,17 +47,31 @@ resource "google_identity_platform_config" "auth" {
   depends_on = [google_project_service.identitytoolkit]
 }
 
-# Google social sign-in. Only created when an OAuth client is supplied, so the
-# base config applies cleanly before you've set up the OAuth consent screen.
+# Google social sign-in. The OAuth web-client id/secret live in Secret Manager
+# (populated once via scripts/put-google-oauth-secrets.sh) rather than in tfvars,
+# so no credential is committed or kept on disk. Gated on enable_google_signin so
+# the base config applies cleanly before the secrets exist.
+data "google_secret_manager_secret_version" "google_oauth_client_id" {
+  count   = var.enable_google_signin ? 1 : 0
+  project = var.gcp_project_id
+  secret  = "utro-customer-google-oauth-client-id"
+}
+
+data "google_secret_manager_secret_version" "google_oauth_client_secret" {
+  count   = var.enable_google_signin ? 1 : 0
+  project = var.gcp_project_id
+  secret  = "utro-customer-google-oauth-client-secret"
+}
+
 resource "google_identity_platform_default_supported_idp_config" "google" {
   provider = google-beta
-  count    = var.google_oauth_client_id != "" ? 1 : 0
+  count    = var.enable_google_signin ? 1 : 0
 
   project       = var.gcp_project_id
   enabled       = true
   idp_id        = "google.com"
-  client_id     = var.google_oauth_client_id
-  client_secret = var.google_oauth_client_secret
+  client_id     = data.google_secret_manager_secret_version.google_oauth_client_id[0].secret_data
+  client_secret = data.google_secret_manager_secret_version.google_oauth_client_secret[0].secret_data
 
   depends_on = [google_identity_platform_config.auth]
 }
