@@ -20,7 +20,6 @@ resources:
   # applied in the same batch. Avoids the nginx-stuck-without-upstream
   # deadlock that would otherwise stall the `observability` Kustomization.
   - grafana-nginx-proxy.yaml
-  - grafana-cert-sync.yaml
 
 configMapGenerator:
   - name: utro-dashboard-services

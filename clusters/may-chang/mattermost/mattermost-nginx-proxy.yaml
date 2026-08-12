@@ -5,28 +5,17 @@
 #   Client → Tailscale LB (kernel nftables, port 443) → nginx (TLS termination)
 #     → mattermost-tailscale-svc:8065 (plain HTTP)
 #
-# TLS cert flow:
-#   1. cert-manager creates a self-signed bootstrap cert so nginx can start
-#   2. A CronJob periodically execs into the Tailscale LB proxy pod and runs
-#      `tailscale cert` to get a real Let's Encrypt cert for the tailnet FQDN
-#   3. The CronJob overwrites the K8s TLS secret with the real cert
-#   4. nginx reloads on cert change (inotifyd sidecar sends SIGHUP)
----
-# Bootstrap self-signed cert so nginx can start before the CronJob runs.
-# cert-manager will create the TLS secret 'mattermost-tls-cert'.
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: mattermost-tls-bootstrap
-  namespace: default
-spec:
-  secretName: mattermost-tls-cert
-  issuerRef:
-    name: selfsigned-issuer
-    kind: ClusterIssuer
-  dnsNames:
-    - mattermost.folk-saiph.ts.net
-  duration: 87600h # 10 years — will be overwritten by real cert
+# TLS: nginx reads the `mattermost-tls-cert` Secret, which is NOT managed by
+# this Kustomization. The old flow (a cert-manager selfsigned bootstrap
+# Certificate plus a `mattermost-cert-sync` CronJob that ran `tailscale cert`
+# in the LB proxy pod) was removed — the CronJob hung on every run, so the
+# secret holds a Let's Encrypt cert that expired 2026-07-04 and is not renewed.
+# The bootstrap Certificate also wedged this Flux Kustomization: it never went
+# Ready (the CronJob had overwritten its secret), so `wait: true` failed forever.
+#
+# TODO: replace this nginx + LB stack with a native Tailscale Ingress
+# (ingressClassName: tailscale), which terminates TLS with auto-renewing
+# tailnet Let's Encrypt certs and makes this Secret unnecessary.
 ---
 apiVersion: v1
 kind: ConfigMap
