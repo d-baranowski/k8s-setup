@@ -15,6 +15,8 @@ spec:
       labels:
         app: kadis-contact
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       containers:
         - name: contact
           image: ghcr.io/inspiration-particle/kadis/contact-service:v0.0.1 # {"$imagepolicy": "flux-system:kadis-contact"}
