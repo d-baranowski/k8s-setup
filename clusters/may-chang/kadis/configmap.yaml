@@ -5,7 +5,7 @@ metadata:
   namespace: kadis
 data:
   LISTEN_ADDR: ":8080"
-  CONTACT_EMAIL: "biurokadis@gmail.com"
+  CONTACT_EMAIL: "agnieszkabaranowska456@gmail.com"
   CONTACT_PHONE: "+48573800012"
   SNS_TOPIC_ARN: ""
   AWS_REGION: "eu-central-1"
