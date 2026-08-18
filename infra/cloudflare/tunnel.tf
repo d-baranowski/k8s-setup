@@ -77,6 +77,18 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "utro" {
         tls_timeout            = "10s"
       }
     }
+    ingress_rule {
+      hostname = "kadis-api.inspi.cloud"
+      service  = "http://kadis-contact.kadis.svc.cluster.local:8080"
+      origin_request {
+        connect_timeout        = "30s"
+        keep_alive_connections = 100
+        keep_alive_timeout     = "1m30s"
+        proxy_address          = "127.0.0.1"
+        tcp_keep_alive         = "30s"
+        tls_timeout            = "10s"
+      }
+    }
     # Customer web/mobile app.
     ingress_rule {
       hostname = "app.inspiration-particle.com"

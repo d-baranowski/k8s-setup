@@ -73,6 +73,27 @@ resource "cloudflare_zero_trust_access_application" "customer_api" {
   session_duration = "24h"
 }
 
+# Contact form is public (called from kadis.inspi.cloud). Access would break CORS.
+resource "cloudflare_zero_trust_access_application" "kadis_api" {
+  zone_id          = local.zone_inspi_cloud
+  name             = "Kadis contact API bypass"
+  domain           = "kadis-api.inspi.cloud"
+  type             = "self_hosted"
+  session_duration = "24h"
+}
+
+resource "cloudflare_zero_trust_access_policy" "kadis_api_bypass" {
+  zone_id        = local.zone_inspi_cloud
+  application_id = cloudflare_zero_trust_access_application.kadis_api.id
+  name           = "Bypass for contact form"
+  decision       = "bypass"
+  precedence     = 1
+
+  include {
+    everyone = true
+  }
+}
+
 resource "cloudflare_zero_trust_access_policy" "customer_api_bypass" {
   zone_id        = local.zone_inspiration_particle
   application_id = cloudflare_zero_trust_access_application.customer_api.id

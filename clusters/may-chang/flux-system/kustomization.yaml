@@ -12,6 +12,7 @@ resources:
 - pg-operator-kustomization.yaml
 - utro-kustomization.yaml
 - utr-staging-kustomization.yaml
+- kadis-kustomization.yaml
 - n8n-kustomization.yaml
 - tailscale-operator-kustomization.yaml
 - mattermost-operator-kustomization.yaml

@@ -1,0 +1,10 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: kadis-contact
+  namespace: flux-system
+spec:
+  image: ghcr.io/inspiration-particle/kadis/contact-service
+  interval: 5m0s
+  secretRef:
+    name: ghcr-pull-secret

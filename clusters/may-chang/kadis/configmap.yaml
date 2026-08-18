@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kadis-contact
+  namespace: kadis
+data:
+  LISTEN_ADDR: ":8080"
+  CONTACT_EMAIL: "biurokadis@gmail.com"
+  CONTACT_PHONE: "+48512075121"
+  SNS_TOPIC_ARN: ""
+  AWS_REGION: "eu-central-1"
+  ALLOWED_ORIGINS: "https://kadis.inspi.cloud"
+  TRUST_PROXY: "true"
+  DRY_RUN: "false"
+  API_KEY: "kadis_contact_8f2c4a91e7b35d60"

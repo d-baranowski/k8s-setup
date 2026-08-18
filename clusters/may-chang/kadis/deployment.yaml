@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kadis-contact
+  namespace: kadis
+  labels:
+    app: kadis-contact
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kadis-contact
+  template:
+    metadata:
+      labels:
+        app: kadis-contact
+    spec:
+      containers:
+        - name: contact
+          image: ghcr.io/inspiration-particle/kadis/contact-service:v0.0.1 # {"$imagepolicy": "flux-system:kadis-contact"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: kadis-contact
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: kadis-aws-access-key
+                  key: value
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kadis-aws-secret-access-key
+                  key: value
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "64Mi"
