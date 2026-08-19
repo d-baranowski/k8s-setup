@@ -4,6 +4,7 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - aws-secrets.yaml
+  - turnstile-secret.yaml
   - ghcr-pull-secret.yaml
   - deployment.yaml
   - service.yaml

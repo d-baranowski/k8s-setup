@@ -38,6 +38,11 @@ spec:
                 secretKeyRef:
                   name: kadis-aws-secret-access-key
                   key: value
+            - name: TURNSTILE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: kadis-turnstile-secret
+                  key: value
           livenessProbe:
             httpGet:
               path: /healthz
