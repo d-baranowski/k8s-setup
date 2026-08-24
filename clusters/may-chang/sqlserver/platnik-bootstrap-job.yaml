@@ -2,42 +2,76 @@
 #
 # Płatnik creates its own database — ZUS publishes no schema script, the
 # program's wizard does it (admin doc ch. 5.5.2 "Twórz bazę danych MS SQL").
-# So this Job does NOT create a `platnik` database. It prepares the *server*
-# so that the wizard can, and so that the database it creates is one Płatnik
-# can actually work with:
+# So this Job never creates the database. It prepares the *server* so the
+# wizard can, and grants rights on the result:
 #
 #   1. Server collation must be Polish_CI_AS. ZUS requires the server to run
 #      with code page 1250 and Polish regional settings; CREATE DATABASE
 #      inherits the server collation, so this has to be true before the wizard
-#      runs. Set via MSSQL_COLLATION in statefulset.yaml — only readable during
+#      runs. Set via MSSQL_COLLATION in statefulset.yaml — only read during
 #      first-time setup of an empty volume, so this Job can only *check* it.
 #   2. Default language must be Polish (same chapter).
-#   3. A `platnik` login for day-to-day work. Per admin doc ch. 6.6.2 it needs
-#      no server roles at all — the wizard grants it rights on the database it
-#      creates. Elevated operations (create/convert database) use `sa`, which
-#      Płatnik asks for ad-hoc and deliberately never stores.
+#   3. One SQL login per person. These identify *connections*, not people:
+#      the people themselves are Płatnik program users, created inside the
+#      program under Widok -> Administracja -> Użytkownicy (admin doc ch.
+#      5.2.2), each with their own password and per-płatnik permissions stored
+#      in the database. Two systems with the same names — don't confuse them.
+#   4. A `platnik_app` database role holding exactly the rights Płatnik needs,
+#      instead of db_owner.
+#
+# Why the role needs DDL, which the documentation does not lead you to expect:
+# ch. 6.6.2 says the day-to-day account needs only read/write, but 10.02.002
+# runs a schema-patch pass on every connect. It reads WersjaBazy from
+# PARAM_KONF, probes tables with SELECT TOP 1, then issues DDL, e.g.
+#     ALTER TABLE BLK_RIA_EME_FUS ALTER COLUMN X_4_PRACAWPELWYM VARCHAR(1)
+# With only db_datareader/db_datawriter that ALTER is denied, and SQL Server
+# reports a denied ALTER as "object does not exist or you do not have
+# permission" — which Płatnik surfaces as the unhelpful "Podczas pracy kreatora
+# wystapil blad!" and which blocks the connection wizard entirely. So the role
+# gets ALTER on schema dbo and the CREATE rights a future metryka might need,
+# but not the dangerous half of db_owner: it cannot drop the database, change
+# permissions, take ownership, or restore over the data.
+#
+# Note what ALTER on a schema does include: dropping tables in it. SQL Server
+# has no "alter but not drop", and scoping the grant per-table would leave
+# tables a future metryka adds uncovered, so this is accepted. Treat any login
+# in platnik_app as able to destroy table contents and structure — the
+# protection here is against losing the *database* and its access control, not
+# against a careless DROP TABLE. (Learned the hard way: a verification probe
+# aimed at PARAM_KONF instead of a throwaway table dropped it for real.)
 #
 # Every step checks before it acts, so the Job is safe to re-run at any time;
-# a green log is the proof that the server is ready for the wizard.
+# a green log is the proof that the server is ready.
 #
-# Remaining steps happen on the Windows machine running Płatnik:
-#   a. Install OLE DB Driver *18* for SQL Server. Not 19: it registers under
-#      the ProgID MSOLEDBSQL19, which Płatnik's driver dropdown does not offer,
-#      and it defaults to Encrypt=Mandatory with certificate validation, which
-#      this instance's self-signed certificate fails. v18 registers as
-#      MSOLEDBSQL and defaults to Encrypt=Optional. The tailnet tunnel is
-#      WireGuard-encrypted regardless.
-#   b. Administracja -> Ustawienia bazy danych -> Zmień -> Utwórz nową bazę
-#      danych -> Microsoft SQL Server.
-#        - Nazwa serwera: sqlserver.<tailnet>.ts.net,1433  (never the "(local)"
+# To see what Płatnik actually sends (this is how the ALTER above was found —
+# nothing client-side reveals it), recreate the diagnostic trace:
+#
+#   CREATE EVENT SESSION [platnik_trace] ON SERVER
+#   ADD EVENT sqlserver.login(ACTION(sqlserver.client_hostname, sqlserver.username)),
+#   ADD EVENT sqlserver.error_reported(ACTION(sqlserver.username, sqlserver.sql_text)
+#             WHERE severity >= 11),
+#   ADD EVENT sqlserver.sql_batch_completed(ACTION(sqlserver.username)),
+#   ADD EVENT sqlserver.rpc_completed(ACTION(sqlserver.username))
+#   ADD TARGET package0.ring_buffer (SET max_events_limit=(400))
+#   WITH (MAX_DISPATCH_LATENCY=5 SECONDS, STARTUP_STATE=OFF);
+#   ALTER EVENT SESSION [platnik_trace] ON SERVER STATE = START;
+#
+# Read it back by shredding the ring buffer with
+# @x.nodes('/RingBufferTarget/event') — use that exact path, not '//event',
+# which is pathologically slow. DROP EVENT SESSION when done.
+#
+# Windows-side steps, which cannot live in the cluster:
+#   a. Install OLE DB Driver 18 for SQL Server (x64 package; on Windows-on-ARM
+#      the x86 MSI refuses to install, and the x64 one supplies the x86 DLL
+#      that 32-bit Płatnik loads out of SysWOW64). Not driver 19 — it registers
+#      as MSOLEDBSQL19, which Płatnik's dropdown does not offer.
+#   b. Administracja -> Ustawienia bazy danych -> Zmień -> Wskaż istniejącą
+#      bazę danych -> Microsoft SQL Server.
+#        - Nazwa serwera: sqlserver.<tailnet>.ts.net  (never the "(local)"
 #          alias — ZUS warns it breaks archiving and migration)
-#        - Nazwa bazy: e.g. platnik  (no Polish diacritics, no ";")
-#        - Daily authorisation: "Użyj do autoryzacji istniejącego konta
-#          użytkownika bazy SQL Server" -> login `platnik`
-#        - Authorisation used to create the database: `sa`
+#        - Nazwa bazy: platnik
+#        - Login: the person's own login from Secret Manager
 #        - Sterownik: MSOLEDBSQL
-#   c. Optional: Administracja -> Ustawienia archiwum creates a second
-#      (archive) database the same way. No extra server preparation needed.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -62,6 +96,12 @@ spec:
         component: platnik-bootstrap
     spec:
       restartPolicy: OnFailure
+      volumes:
+        # The login list, one "login = password" per line. Mounted as a file
+        # rather than an env var so it stays readable as people are added.
+        - name: users
+          secret:
+            secretName: sqlserver-platnik-users
       containers:
         - name: bootstrap
           # sqlcmd from the tools17 image: no -C/-N handling needed, unlike
@@ -70,21 +110,29 @@ spec:
           env:
             - name: SQL_HOST
               value: "sqlserver"
+            # The database Płatnik's wizard creates. This Job never creates it
+            # — it only grants the rights it needs once it exists.
+            - name: PLATNIK_DB
+              value: "platnik"
+            # Kept working (demoted into platnik_app) until both people are on
+            # their own logins; then drop it.
+            - name: LEGACY_LOGIN
+              value: "platnik"
             - name: SA_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: sqlserver-sa-password
                   key: password
-            - name: PLATNIK_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: sqlserver-platnik-password
-                  key: password
+          volumeMounts:
+            - name: users
+              mountPath: /etc/platnik
+              readOnly: true
           command: ["/bin/bash", "-c"]
           args:
             - |
               set -euo pipefail
               SQLCMD=/opt/mssql-tools/bin/sqlcmd
+              USERS_FILE=/etc/platnik/users
 
               # -b: non-zero exit on SQL error. -h -1 -W: bare values, no
               # headers or padding, so results can be compared in the shell.
@@ -95,13 +143,13 @@ spec:
               # way rather than through `sqlcmd -v`, which rejects values
               # containing characters such as '%'.
               sa_stdin() { sa -i /dev/stdin; }
-              # Single quotes doubled, so the value is a safe SQL literal.
-              sql_quote() { printf '%s' "${1//\'/\'\'}"; }
               # First line of a single-value query, minus sqlcmd's CRs. Kept as
               # parameter expansion rather than `| head -1` so pipefail can't
               # trip over a SIGPIPE'd sqlcmd.
               first_line() { local o="${1//$'\r'/}"; printf '%s' "${o%%$'\n'*}"; }
               value() { first_line "$(sa -Q "SET NOCOUNT ON; $1")"; }
+              # Single quotes doubled, so the value is a safe SQL literal.
+              sql_quote() { printf '%s' "${1//\'/\'\'}"; }
 
               echo "== 1. waiting for SQL Server on $SQL_HOST =="
               for i in $(seq 1 60); do
@@ -127,8 +175,7 @@ spec:
                 echo "     kubectl -n sqlserver delete pvc mssql-data-sqlserver-0"
                 echo "     flux reconcile kustomization sqlserver"
                 echo ""
-                echo "   THIS DESTROYS ALL DATABASES ON THE INSTANCE. If Płatnik has"
-                echo "   already created its database, back it up first."
+                echo "   THIS DESTROYS ALL DATABASES ON THE INSTANCE. Back up first."
                 exit 1
               fi
               echo "   already correct: $COLLATION"
@@ -152,45 +199,184 @@ spec:
               SQL
               )"
 
-              echo "== 4. checking platnik login =="
-              PW="$(sql_quote "$PLATNIK_PASSWORD")"
-              sa_stdin <<SQL
+              echo "== 4. reading the login list =="
+              LOGINS=()
+              declare -A PASSWORDS
+              while IFS= read -r line; do
+                case "$line" in ''|\#*) continue;; esac
+                login="${line%%=*}"
+                pass="${line#*=}"
+                login="$(printf '%s' "$login" | tr -d '[:space:]')"
+                pass="${pass#"${pass%%[![:space:]]*}"}"
+                pass="${pass%"${pass##*[![:space:]]}"}"
+                [ -z "$login" ] && continue
+                if ! [[ "$login" =~ ^[A-Za-z0-9_]+$ ]]; then
+                  echo "   SKIP: '$login' is not a valid login name (letters, digits, _ only)"
+                  continue
+                fi
+                LOGINS+=("$login")
+                PASSWORDS["$login"]="$pass"
+              done < "$USERS_FILE"
+              if [ "${#LOGINS[@]}" -eq 0 ]; then
+                echo "   FAIL: no usable entries in $USERS_FILE"
+                exit 1
+              fi
+              echo "   ${#LOGINS[@]} login(s): ${LOGINS[*]}"
+
+              echo "== 5. server logins =="
+              for l in "${LOGINS[@]}"; do
+                PW="$(sql_quote "${PASSWORDS[$l]}")"
+                sa_stdin <<SQL
               SET NOCOUNT ON;
-              IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'platnik')
+              IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'$l')
               BEGIN
-                  PRINT '   applying: creating login';
-                  EXEC('CREATE LOGIN [platnik] WITH PASSWORD = ''${PW}'',
+                  PRINT '   $l: creating';
+                  EXEC('CREATE LOGIN [$l] WITH PASSWORD = ''$PW'',
                         DEFAULT_LANGUAGE = [Polish], CHECK_POLICY = ON');
               END
               ELSE
               BEGIN
-                  PRINT '   already exists: syncing password and default language';
-                  EXEC('ALTER LOGIN [platnik] WITH PASSWORD = ''${PW}'',
-                        DEFAULT_LANGUAGE = [Polish]');
+                  PRINT '   $l: already exists, syncing password and default language';
+                  EXEC('ALTER LOGIN [$l] WITH PASSWORD = ''$PW'', DEFAULT_LANGUAGE = [Polish]');
               END
               SQL
+              done
 
-              echo "== 5. verifying as the platnik login =="
-              LANG_AS_PLATNIK="$(first_line "$("$SQLCMD" -S "$SQL_HOST" -U platnik \
-                -P "$PLATNIK_PASSWORD" -b -h -1 -W -Q "SET NOCOUNT ON; SELECT @@LANGUAGE")")"
-              echo "   connected, @@LANGUAGE = $LANG_AS_PLATNIK"
+              echo "== 6. rights on the $PLATNIK_DB database =="
+              DB_PRESENT="$(value "SELECT CASE WHEN DB_ID(N'$PLATNIK_DB') IS NULL THEN 0 ELSE 1 END")"
+              if [ "$DB_PRESENT" != "1" ]; then
+                echo "   $PLATNIK_DB does not exist yet — run Płatnik's database wizard first,"
+                echo "   then re-run this Job to grant the rights it needs."
+              else
+                # Every managed login, plus the legacy one, as a SQL literal list
+                # for the drift report below.
+                MANAGED="'$LEGACY_LOGIN'"
+                for l in "${LOGINS[@]}"; do MANAGED="$MANAGED,'$l'"; done
+
+                sa_stdin <<SQL
+              SET NOCOUNT ON;
+              IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'$PLATNIK_DB' AND is_auto_close_on = 1)
+              BEGIN
+                  PRINT '   applying: AUTO_CLOSE OFF (avoids a warm-up stall on every connect)';
+                  ALTER DATABASE [$PLATNIK_DB] SET AUTO_CLOSE OFF;
+              END
+              ELSE PRINT '   AUTO_CLOSE already off';
+              SQL
+
+                sa_stdin <<SQL
+              SET NOCOUNT ON;
+              USE [$PLATNIK_DB];
+
+              IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'platnik_app' AND type = 'R')
+              BEGIN
+                  PRINT '   creating role platnik_app';
+                  CREATE ROLE [platnik_app];
+              END
+              ELSE PRINT '   role platnik_app already exists';
+
+              IF NOT EXISTS (SELECT 1 FROM sys.database_role_members m
+                             JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+                             JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+                             WHERE r.name = N'db_datareader' AND u.name = N'platnik_app')
+                  ALTER ROLE db_datareader ADD MEMBER [platnik_app];
+              IF NOT EXISTS (SELECT 1 FROM sys.database_role_members m
+                             JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+                             JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+                             WHERE r.name = N'db_datawriter' AND u.name = N'platnik_app')
+                  ALTER ROLE db_datawriter ADD MEMBER [platnik_app];
+
+              -- The schema-patch DDL, scoped to dbo. ALTER covers tables added
+              -- by future metryki; the CREATE rights cover a metryka that adds
+              -- objects rather than altering them. GRANT is idempotent.
+              GRANT ALTER, REFERENCES, EXECUTE ON SCHEMA::dbo TO [platnik_app];
+              GRANT CREATE TABLE, CREATE VIEW, CREATE PROCEDURE TO [platnik_app];
+              PRINT '   granted: read/write, ALTER/REFERENCES/EXECUTE on dbo, CREATE TABLE/VIEW/PROCEDURE';
+              SQL
+
+                for l in "${LOGINS[@]}" "$LEGACY_LOGIN"; do
+                  sa_stdin <<SQL
+              SET NOCOUNT ON;
+              USE [$PLATNIK_DB];
+              IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'$l')
+                  PRINT '   $l: no such login, skipping';
+              ELSE
+              BEGIN
+                  IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'$l')
+                  BEGIN
+                      PRINT '   $l: mapping into the database';
+                      CREATE USER [$l] FOR LOGIN [$l];
+                  END
+                  IF NOT EXISTS (SELECT 1 FROM sys.database_role_members m
+                                 JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+                                 JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+                                 WHERE r.name = N'platnik_app' AND u.name = N'$l')
+                  BEGIN
+                      PRINT '   $l: adding to platnik_app';
+                      ALTER ROLE [platnik_app] ADD MEMBER [$l];
+                  END
+                  -- The point of this Job: no application login keeps db_owner.
+                  IF EXISTS (SELECT 1 FROM sys.database_role_members m
+                             JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+                             JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+                             WHERE r.name = N'db_owner' AND u.name = N'$l')
+                  BEGIN
+                      PRINT '   $l: removing db_owner';
+                      ALTER ROLE db_owner DROP MEMBER [$l];
+                  END
+              END
+              SQL
+                done
+
+                # Drift and layout checks: report, never act. Auto-dropping
+                # principals from a Job that runs on every reconcile is a good
+                # way to lose access at the worst moment.
+                sa_stdin <<SQL
+              SET NOCOUNT ON;
+              USE [$PLATNIK_DB];
+              SELECT '   WARNING: unmanaged member of platnik_app: ' + u.name
+              FROM sys.database_role_members m
+              JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+              JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+              WHERE r.name = N'platnik_app' AND u.name NOT IN ($MANAGED);
+              SELECT '   WARNING: db_owner still held by: ' + u.name
+              FROM sys.database_role_members m
+              JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+              JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+              WHERE r.name = N'db_owner' AND u.name <> N'dbo';
+              -- platnik_app is scoped to dbo, so a table anywhere else would be
+              -- invisible to every login. Cheaper to warn than to rediscover.
+              SELECT '   WARNING: table outside dbo: ' + s.name + '.' + t.name
+              FROM sys.tables t JOIN sys.schemas s ON s.schema_id = t.schema_id
+              WHERE s.name <> 'dbo';
+              SQL
+              fi
+
+              FIRST="${LOGINS[0]}"
+              echo "== 7. verifying as $FIRST =="
+              LANG_AS_USER="$(first_line "$("$SQLCMD" -S "$SQL_HOST" -U "$FIRST" \
+                -P "${PASSWORDS[$FIRST]}" -b -x -h -1 -W -Q "SET NOCOUNT ON; SELECT @@LANGUAGE")")"
+              echo "   connected, @@LANGUAGE = $LANG_AS_USER"
 
               echo ""
               echo "== summary =="
-              sa -Q "$(cat <<'SQL'
+              sa -Q "$(cat <<SQL
               SET NOCOUNT ON;
               SELECT 'collation        : ' + CONVERT(varchar(128), SERVERPROPERTY('Collation'));
               SELECT 'edition          : ' + CONVERT(varchar(128), SERVERPROPERTY('Edition'));
-              SELECT 'product version  : ' + CONVERT(varchar(128), SERVERPROPERTY('ProductVersion'));
               SELECT 'default language : ' + name FROM sys.syslanguages WHERE langid =
                   (SELECT CONVERT(int, value_in_use) FROM sys.configurations WHERE name = 'default language');
-              SELECT 'platnik login    : ' + name + ' (default language: ' + default_language_name + ')'
-                  FROM sys.server_principals WHERE name = N'platnik';
-              SELECT 'databases        : ' + STRING_AGG(name, ', ') FROM sys.databases;
+              SELECT 'logins           : ' + STRING_AGG(name, ', ') FROM sys.server_principals
+                  WHERE type = 'S' AND name NOT LIKE '##%' AND name <> 'sa';
+              IF DB_ID(N'$PLATNIK_DB') IS NOT NULL
+                  EXEC('SELECT ''platnik_app      : '' + STRING_AGG(u.name, '', '')
+                        FROM [$PLATNIK_DB].sys.database_role_members m
+                        JOIN [$PLATNIK_DB].sys.database_principals r ON r.principal_id = m.role_principal_id
+                        JOIN [$PLATNIK_DB].sys.database_principals u ON u.principal_id = m.member_principal_id
+                        WHERE r.name = N''platnik_app''');
               SQL
               )"
               echo ""
-              echo "Server is ready for the Płatnik database wizard."
+              echo "Server is ready."
           resources:
             requests:
               cpu: "50m"

@@ -4,6 +4,7 @@ resources:
   - namespace.yaml
   - sa-password-secret.yaml
   - platnik-user-secret.yaml
+  - platnik-users-secret.yaml
   - statefulset.yaml
   - service.yaml
   - platnik-bootstrap-job.yaml

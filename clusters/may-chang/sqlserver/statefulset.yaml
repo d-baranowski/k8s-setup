@@ -70,15 +70,19 @@ spec:
               port: mssql
             periodSeconds: 10
             failureThreshold: 30
+          # Long periods on purpose: each TCP probe opens and drops a socket,
+          # which SQL Server logs as "network error 0x2746 during connection
+          # establishment". At 10s that noise fills the error log and buries
+          # real client failures — it cost us an afternoon of debugging once.
           livenessProbe:
             tcpSocket:
               port: mssql
-            periodSeconds: 20
+            periodSeconds: 60
             failureThreshold: 3
           readinessProbe:
             tcpSocket:
               port: mssql
-            periodSeconds: 10
+            periodSeconds: 30
             failureThreshold: 3
           resources:
             requests:
