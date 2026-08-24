@@ -1,0 +1,98 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sqlserver
+  namespace: sqlserver
+  labels: &labels
+    app: sqlserver
+    component: statefulset
+spec:
+  serviceName: sqlserver
+  replicas: 1
+  selector:
+    matchLabels: *labels
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      # The mssql image runs as uid/gid 10001; fsGroup makes the local-path
+      # volume writable for it.
+      securityContext:
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: mssql
+          image: mcr.microsoft.com/mssql/server:2022-latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: mssql
+              containerPort: 1433
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            # Express, not Developer: Developer edition is licensed for
+            # dev/test only and this instance files real documents to ZUS.
+            # Express is free for production and its limits (10 GB per
+            # database, ~1.4 GB buffer pool) are far beyond what Platnik needs.
+            - name: MSSQL_PID
+              value: "Express"
+            # Platnik requires the server to run with code page 1250 and Polish
+            # regional settings (ZUS admin doc, ch. 5.5.2). The wizard's CREATE
+            # DATABASE inherits the server collation, so it must be set here.
+            # Read only during first-time setup of an empty /var/opt/mssql.
+            - name: MSSQL_COLLATION
+              value: "Polish_CI_AS"
+            # Must stay off: a non-default collation combined with the Agent
+            # makes the msdb collation change fail during setup (error 3434,
+            # server shuts down) -- microsoft/mssql-docker#629. Platnik does
+            # not use the Agent, and Express has none anyway.
+            - name: MSSQL_AGENT_ENABLED
+              value: "false"
+            # Keep the engine's own budget below the container limit so the
+            # kernel never OOM-kills it.
+            - name: MSSQL_MEMORY_LIMIT_MB
+              value: "2048"
+            - name: MSSQL_SA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sqlserver-sa-password
+                  key: password
+          volumeMounts:
+            - name: mssql-data
+              mountPath: /var/opt/mssql
+          # SQL Server ships no shell-friendly health endpoint and the image
+          # carries no sqlcmd, so probe the listener socket instead.
+          startupProbe:
+            tcpSocket:
+              port: mssql
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket:
+              port: mssql
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: mssql
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "3Gi"
+  volumeClaimTemplates:
+    - metadata:
+        name: mssql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 20Gi

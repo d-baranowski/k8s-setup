@@ -1,0 +1,46 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqlserver
+  namespace: sqlserver
+  labels:
+    app: sqlserver
+    component: service
+spec:
+  type: ClusterIP
+  selector:
+    app: sqlserver
+    component: statefulset
+  ports:
+    - name: mssql
+      port: 1433
+      targetPort: mssql
+      protocol: TCP
+---
+# Tailscale LoadBalancer Service — the operator's proxy forwards raw TCP
+# straight to the pod, which is what TDS needs (unlike the grafana/mattermost
+# LBs, there is no nginx in front). The instance appears on the tailnet as
+# sqlserver.<tailnet>.ts.net:1433, so the Windows machine running Płatnik can
+# reach it directly; the tunnel is WireGuard-encrypted.
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqlserver-ts-lb
+  namespace: sqlserver
+  labels:
+    app: sqlserver
+    component: tailscale-lb
+  annotations:
+    tailscale.com/hostname: "sqlserver"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  selector:
+    app: sqlserver
+    component: statefulset
+  ports:
+    - name: mssql
+      port: 1433
+      targetPort: mssql
+      protocol: TCP

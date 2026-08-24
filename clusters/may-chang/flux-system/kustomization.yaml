@@ -20,3 +20,4 @@ resources:
 - observability-kustomization.yaml
 - observability-resources-kustomization.yaml
 - coredns-kustomization.yaml
+- sqlserver-kustomization.yaml
