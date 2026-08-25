@@ -1,0 +1,29 @@
+# Non-secret environment for OpenSEO. Mirrors the upstream self-host
+# compose.yaml (`environment:` block) rather than inventing our own settings.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: open-seo-config
+  namespace: open-seo
+  labels:
+    app: open-seo
+    component: configmap
+data:
+  # Self-host mode: no auth checks, every request is the local `admin@localhost`
+  # user. Upstream hardcodes this in compose.yaml and docs/SELF_HOSTING_DOCKER.md
+  # says to only run it "behind your own auth-protected reverse proxy, tunnel, or
+  # private network". The tailnet is that boundary — and the only one. Anyone who
+  # can reach the Ingress has full admin, so the tailnet ACL is load-bearing here.
+  AUTH_MODE: "local_noauth"
+  # Required: without it the workerd runtime cannot see the process environment,
+  # and every binding-backed env value (including the DataForSEO key) reads empty.
+  CLOUDFLARE_INCLUDE_PROCESS_ENV: "true"
+  PORT: "3001"
+  # vite preview refuses any Host header not in `preview.allowedHosts`
+  # (vite.config.ts builds that list from ALLOWED_HOST). This must match the
+  # MagicDNS name the Tailscale Ingress serves, or the app 403s every request.
+  ALLOWED_HOST: "open-seo.folk-saiph.ts.net"
+  # Upstream sends an anonymous usage heartbeat (aggregate counts against a
+  # random install id) to their PostHog. Set to 0 or delete this line to opt in.
+  OPENSEO_TELEMETRY_DISABLED: "1"
+  VITE_SHOW_DEVTOOLS: "false"

@@ -1,0 +1,19 @@
+# Backs /app/.wrangler: the local D1 SQLite database (the app's entire dataset)
+# plus the Durable Object SQLite for the onboarding/SAM chat agents and audit
+# scratchpads. Everything the user creates in OpenSEO lives here.
+#
+# Deliberately NOT used for /app/dist — see the note in deployment.yaml.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: open-seo-data
+  namespace: open-seo
+  labels:
+    app: open-seo
+    component: pvc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi

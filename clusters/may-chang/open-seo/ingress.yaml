@@ -1,0 +1,36 @@
+# Tailnet-only exposure: https://open-seo.folk-saiph.ts.net
+#
+# The Tailscale operator turns this into a dedicated tailnet node running a
+# proxy, and provisions an auto-renewing Let's Encrypt cert for the MagicDNS
+# name — so unlike the Grafana and Mattermost exposures (nginx-proxy +
+# loadBalancerClass: tailscale, still on self-signed material because their
+# cert-sync CronJob never worked), this needs no nginx, no cert-manager
+# Certificate and no TLS Secret of our own. See the TODO at the top of
+# observability-resources/grafana-nginx-proxy.yaml, which points at this
+# pattern; open-seo is the first user of it in this cluster.
+#
+# Reachability is tailnet-only by default. There is deliberately no
+# `tailscale.com/funnel: "true"` annotation — adding one would publish this to
+# the public internet, and the app runs with AUTH_MODE=local_noauth (no auth
+# whatsoever), so Funnel would hand the world an admin session.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: open-seo
+  namespace: open-seo
+  labels:
+    app: open-seo
+    component: ingress
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: open-seo
+      port:
+        number: 3001
+  tls:
+    # Short name on purpose: the operator appends the tailnet suffix, giving
+    # open-seo.folk-saiph.ts.net. It must match ALLOWED_HOST in configmap.yaml
+    # or vite preview rejects every request with a 403.
+    - hosts:
+        - open-seo
