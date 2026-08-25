@@ -1,0 +1,94 @@
+# Alerts for OpenSEO.
+#
+# Prometheus discovers PrometheusRules in every namespace
+# (ruleSelectorNilUsesHelmValues: false + empty ruleNamespaceSelector in
+# observability/helmrelease-kube-prometheus-stack.yaml), so this lives next to
+# the workload it describes rather than in the observability directory — same
+# reasoning as sqlserver/alerts.yaml.
+#
+# The app itself is uninstrumented (no OpenTelemetry, no /metrics endpoint), so
+# every expression below is built from what the platform collects for any pod:
+# kube-state-metrics and cAdvisor. Nothing here can tell you whether a crawl
+# succeeded — only whether the process is alive and fed.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: open-seo-alerts
+  namespace: open-seo
+  labels:
+    app: open-seo
+    component: alerts
+spec:
+  groups:
+    - name: open-seo
+      rules:
+        # 15m, not the usual 5m: a cold start legitimately spends several
+        # minutes rebuilding before it can serve, and a restart during a node
+        # reboot would otherwise page every time.
+        - alert: OpenSeoDown
+          expr: kube_deployment_status_replicas_available{namespace="open-seo", deployment="open-seo"} < 1
+          for: 15m
+          labels:
+            severity: warning
+            service: open-seo
+          annotations:
+            summary: "OpenSEO has no available replica"
+            description: >-
+              Nothing is serving open-seo.folk-saiph.ts.net. Note that a normal
+              cold start takes minutes (the container rebuilds the app on every
+              start), so first check whether it is simply still building:
+              `kubectl -n open-seo logs deploy/open-seo`.
+
+        # The likeliest failure on this cluster. The boot build wants a 4 GiB
+        # heap and both nodes run close to full, so the container can lose the
+        # race against the memory limit — and because the build reruns on every
+        # start, an OOM here is a loop, not a blip.
+        - alert: OpenSeoOOMKilled
+          expr: kube_pod_container_status_last_terminated_reason{namespace="open-seo", container="open-seo", reason="OOMKilled"} > 0
+          for: 5m
+          labels:
+            severity: critical
+            service: open-seo
+          annotations:
+            summary: "OpenSEO container was OOMKilled"
+            description: >-
+              The container hit its memory limit, almost certainly during the
+              boot-time vite build (4 GiB heap via .npmrc). It will retry and
+              likely OOM again. Raise limits.memory in
+              clusters/may-chang/open-seo/deployment.yaml, or free memory on the
+              node it landed on.
+
+        - alert: OpenSeoRestartLoop
+          expr: increase(kube_pod_container_status_restarts_total{namespace="open-seo", container="open-seo"}[1h]) > 3
+          for: 10m
+          labels:
+            severity: warning
+            service: open-seo
+          annotations:
+            summary: "OpenSEO restarted {{ $value | humanize }} times in the last hour"
+            description: >-
+              Each restart costs a full rebuild of several minutes, so more than
+              a few per hour means the app is effectively never up. Check
+              `kubectl -n open-seo describe pod -l app=open-seo` for the exit
+              reason.
+
+        # local-path reports the node filesystem rather than the 10Gi request,
+        # so this tracks real free space on the node hosting the volume — which
+        # is the actual constraint. The D1 database and every Durable Object's
+        # SQLite live here.
+        - alert: OpenSeoVolumeLow
+          expr: >-
+            kubelet_volume_stats_available_bytes{namespace="open-seo", persistentvolumeclaim="open-seo-data"}
+            / kubelet_volume_stats_capacity_bytes{namespace="open-seo", persistentvolumeclaim="open-seo-data"}
+            < 0.15
+          for: 30m
+          labels:
+            severity: warning
+            service: open-seo
+          annotations:
+            summary: "OpenSEO data volume below 15% free"
+            description: >-
+              {{ $value | humanizePercentage }} free on the volume backing
+              /app/.wrangler. This holds the entire OpenSEO dataset (D1 plus the
+              chat and site-audit Durable Objects); a full disk means write
+              failures, not just a slow app.

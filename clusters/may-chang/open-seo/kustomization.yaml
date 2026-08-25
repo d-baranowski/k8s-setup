@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# The Flux Kustomization applying this directory (flux-system/open-seo-kustomization.yaml)
+# declares dependsOn for external-secrets-resources and tailscale-operator, so
+# the ClusterSecretStore and the tailscale IngressClass both exist first.
+resources:
+  - namespace.yaml
+  - dataforseo-secret.yaml
+  - configmap.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - alerts.yaml

@@ -1,0 +1,102 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-seo
+  namespace: open-seo
+  labels: &labels
+    app: open-seo
+    component: deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels: *labels
+  # Recreate, not RollingUpdate: the data PVC is ReadWriteOnce on a
+  # WaitForFirstConsumer local-path volume, so a second pod could never attach
+  # it and the rollout would deadlock waiting for a Ready replica that cannot
+  # start.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      # The upstream image runs as root and builds into /app at start; there is
+      # no non-root variant, so no securityContext override here.
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: open-seo
+          # Pinned to the current release. `latest` would silently roll the app
+          # on every pod restart. Digest for v0.1.6:
+          # sha256:b7930375e3cffd6530c2423dac0913e97cd5b22f05caf26908e26033acac289c
+          image: ghcr.io/every-app/open-seo:v0.1.6
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3001
+          envFrom:
+            - configMapRef:
+                name: open-seo-config
+          env:
+            - name: DATAFORSEO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openseo-dataforseo-api-key
+                  key: value
+          volumeMounts:
+            # D1 + Durable Object SQLite. The only path that must survive a
+            # restart.
+            - name: data
+              mountPath: /app/.wrangler
+          # /api/health is unauthenticated and always answers 200 — it reports
+          # per-feature configuration problems in the JSON body (`"status":
+          # "issues"`) rather than as an HTTP error. That is exactly what makes
+          # it safe to probe: a missing optional key can never get the container
+          # killed by the liveness probe.
+          #
+          # docker-entrypoint.sh runs the full vite SSR build (~7400 modules)
+          # on EVERY container start, not at image build time, because vite
+          # inlines the envPrefix'd client env into the bundle. That takes
+          # minutes, so the startup budget is 10 minutes and liveness stays
+          # slack afterwards.
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Steady-state serving is a few hundred MB; the limit exists for the
+          # boot build, which .npmrc gives a 4 GiB heap (node-options=
+          # --max-old-space-size=4096). Both nodes are tight on memory, so that
+          # transient spike is the most likely way this deployment breaks —
+          # OpenSeoOOMKilled in alerts.yaml watches for exactly that.
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "5Gi"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: open-seo-data
+        # /app/dist is intentionally left on the container's writable layer.
+        # Persisting it would look like a win (it would skip the multi-minute
+        # rebuild on restart) but the entrypoint's skip marker is a hash of
+        # build-relevant ENV ONLY, not of the code — it relies on a new image
+        # arriving with an empty dist. A persisted dist would survive an image
+        # bump and silently serve the previous version's build.

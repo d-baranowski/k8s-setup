@@ -1,0 +1,20 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: open-seo
+  namespace: flux-system
+spec:
+  dependsOn:
+    # The DataForSEO ExternalSecret needs the google-secrets ClusterSecretStore.
+    - name: external-secrets-resources
+      namespace: flux-system
+    # The Ingress needs the `tailscale` IngressClass the operator registers.
+    - name: tailscale-operator
+      namespace: flux-system
+  interval: 10m
+  path: ./clusters/may-chang/open-seo
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  wait: true

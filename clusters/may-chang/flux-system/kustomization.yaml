@@ -21,3 +21,4 @@ resources:
 - observability-resources-kustomization.yaml
 - coredns-kustomization.yaml
 - sqlserver-kustomization.yaml
+- open-seo-kustomization.yaml

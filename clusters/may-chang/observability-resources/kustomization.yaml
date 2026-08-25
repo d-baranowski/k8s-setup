@@ -20,6 +20,9 @@ resources:
   # applied in the same batch. Avoids the nginx-stuck-without-upstream
   # deadlock that would otherwise stall the `observability` Kustomization.
   - grafana-nginx-proxy.yaml
+  # OpenSEO (clusters/may-chang/open-seo) — pod-level health only; the app
+  # itself emits no OTel or Prometheus data.
+  - open-seo-dashboards.yaml
 
 configMapGenerator:
   - name: utro-dashboard-services
@@ -42,6 +45,10 @@ configMapGenerator:
     namespace: observability
     files:
       - utro-error-logs.json
+  - name: open-seo-dashboard-overview
+    namespace: observability
+    files:
+      - open-seo.json
   # Vendored community dashboards (patched — see infrastructure-dashboards.yaml).
   - name: infra-dashboard-node-exporter-full
     namespace: observability
