@@ -90,8 +90,13 @@ spec:
           # Do NOT trim this to "the peak kubectl top reported". We tried
           # exactly that: top sampled ~2.2 GiB, 3Gi looked generous, and the
           # next rollout OOMKilled at 2962Mi. `kubectl top` polls on a ~15-30s
-          # cycle and simply misses the spike in a build this short. Trust the
-          # 4 GiB heap ceiling, not the sampled number.
+          # cycle and simply misses the spike in a build this short.
+          #
+          # The real high-water mark, from Prometheus
+          # container_memory_max_usage_bytes, is ~3.8 GiB — so even 4Gi would
+          # be marginal. If you ever need to re-measure, use that metric or
+          # max_over_time(container_memory_working_set_bytes[...]); never a
+          # point-in-time sample.
           #
           # Both nodes are tight on memory, so this is the transient spike most
           # likely to break the deployment — OpenSeoOOMKilled in alerts.yaml
