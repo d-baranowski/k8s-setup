@@ -18,6 +18,11 @@
 #      in the database. Two systems with the same names — don't confuse them.
 #   4. A `platnik_app` database role holding exactly the rights Płatnik needs,
 #      instead of db_owner.
+#   5. A `sqlserver_backup` login in db_backupoperator for the hourly backup
+#      CronJob, and SIMPLE recovery on the database. SIMPLE matters: the wizard
+#      creates the database in FULL recovery, and with no log backups taken the
+#      transaction log grows until it fills the volume. Hourly full backups make
+#      the log chain pointless anyway.
 #
 # Why the role needs DDL, which the documentation does not lead you to expect:
 # ch. 6.6.2 says the day-to-day account needs only read/write, but 10.02.002
@@ -105,8 +110,10 @@ spec:
       containers:
         - name: bootstrap
           # sqlcmd from the tools17 image: no -C/-N handling needed, unlike
-          # mssql-tools18 which trusts no certificate by default.
-          image: mcr.microsoft.com/mssql-tools:latest
+          # mssql-tools18 which trusts no certificate by default. Pinned by
+          # digest — mssql-tools publishes no versioned tag. Resolved
+          # 2026-08-25 with `docker buildx imagetools inspect`.
+          image: mcr.microsoft.com/mssql-tools@sha256:62556500522072535cb3df2bb5965333dded9be47000473e9e0f84118e248642
           env:
             - name: SQL_HOST
               value: "sqlserver"
@@ -122,6 +129,11 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: sqlserver-sa-password
+                  key: password
+            - name: BACKUP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sqlserver-backup-password
                   key: password
           volumeMounts:
             - name: users
@@ -250,7 +262,7 @@ spec:
               else
                 # Every managed login, plus the legacy one, as a SQL literal list
                 # for the drift report below.
-                MANAGED="'$LEGACY_LOGIN'"
+                MANAGED="'$LEGACY_LOGIN','sqlserver_backup'"
                 for l in "${LOGINS[@]}"; do MANAGED="$MANAGED,'$l'"; done
 
                 sa_stdin <<SQL
@@ -327,6 +339,55 @@ spec:
               SQL
                 done
 
+                sa_stdin <<SQL
+              SET NOCOUNT ON;
+              IF EXISTS (SELECT 1 FROM sys.databases
+                         WHERE name = N'$PLATNIK_DB' AND recovery_model_desc <> N'SIMPLE')
+              BEGIN
+                  PRINT '   applying: RECOVERY SIMPLE (no log backups are taken, so FULL would grow forever)';
+                  ALTER DATABASE [$PLATNIK_DB] SET RECOVERY SIMPLE;
+              END
+              ELSE PRINT '   recovery model already SIMPLE';
+              SQL
+
+                # The backup login: db_backupoperator and nothing else. It is
+                # deliberately not in platnik_app — backing the database up and
+                # using it are separate jobs with separate blast radius.
+                BPW="$(sql_quote "$BACKUP_PASSWORD")"
+                sa_stdin <<SQL
+              SET NOCOUNT ON;
+              IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'sqlserver_backup')
+              BEGIN
+                  PRINT '   sqlserver_backup: creating';
+                  EXEC('CREATE LOGIN [sqlserver_backup] WITH PASSWORD = ''$BPW'',
+                        DEFAULT_LANGUAGE = [Polish], CHECK_POLICY = ON');
+              END
+              ELSE
+              BEGIN
+                  PRINT '   sqlserver_backup: already exists, syncing password';
+                  EXEC('ALTER LOGIN [sqlserver_backup] WITH PASSWORD = ''$BPW'', DEFAULT_LANGUAGE = [Polish]');
+              END
+              SQL
+
+                sa_stdin <<SQL
+              SET NOCOUNT ON;
+              USE [$PLATNIK_DB];
+              IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'sqlserver_backup')
+              BEGIN
+                  PRINT '   sqlserver_backup: mapping into the database';
+                  CREATE USER [sqlserver_backup] FOR LOGIN [sqlserver_backup];
+              END
+              IF NOT EXISTS (SELECT 1 FROM sys.database_role_members m
+                             JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+                             JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+                             WHERE r.name = N'db_backupoperator' AND u.name = N'sqlserver_backup')
+              BEGIN
+                  PRINT '   sqlserver_backup: adding to db_backupoperator';
+                  ALTER ROLE db_backupoperator ADD MEMBER [sqlserver_backup];
+              END
+              ELSE PRINT '   sqlserver_backup: already db_backupoperator';
+              SQL
+
                 # Drift and layout checks: report, never act. Auto-dropping
                 # principals from a Job that runs on every reconcile is a good
                 # way to lose access at the worst moment.
@@ -367,6 +428,9 @@ spec:
                   (SELECT CONVERT(int, value_in_use) FROM sys.configurations WHERE name = 'default language');
               SELECT 'logins           : ' + STRING_AGG(name, ', ') FROM sys.server_principals
                   WHERE type = 'S' AND name NOT LIKE '##%' AND name <> 'sa';
+              IF DB_ID(N'$PLATNIK_DB') IS NOT NULL
+                  SELECT 'recovery model   : ' + recovery_model_desc
+                  FROM sys.databases WHERE name = N'$PLATNIK_DB';
               IF DB_ID(N'$PLATNIK_DB') IS NOT NULL
                   EXEC('SELECT ''platnik_app      : '' + STRING_AGG(u.name, '', '')
                         FROM [$PLATNIK_DB].sys.database_role_members m

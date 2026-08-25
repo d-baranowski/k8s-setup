@@ -5,6 +5,9 @@ resources:
   - sa-password-secret.yaml
   - platnik-user-secret.yaml
   - platnik-users-secret.yaml
+  - backup-secret.yaml
+  - backup-aws-creds.yaml
   - statefulset.yaml
   - service.yaml
   - platnik-bootstrap-job.yaml
+  - backup-cronjob.yaml

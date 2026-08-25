@@ -1,0 +1,33 @@
+# AWS credentials for the backup bucket, kadis-ad77fef6-backups.
+#
+# The IAM user and these two Secret Manager entries are created by the
+# infra/kadis Terraform stack (create_user = true). Until that stack is
+# applied this ExternalSecret stays unsynced — that is expected on a fresh
+# clone, not a fault.
+#
+# External Secrets is namespaced, so this is a second copy of what
+# pg-operator/postgres-backup-aws-creds.yaml does for Postgres in `default`;
+# different bucket, different IAM user.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: sqlserver-backup-aws-creds
+  namespace: sqlserver
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: google-secrets
+  target:
+    name: sqlserver-backup-aws-creds
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: AWS_ACCESS_KEY_ID
+      remoteRef:
+        key: kadis-ad77fef6-backups-aws-access-key-id
+        version: latest
+    - secretKey: AWS_SECRET_ACCESS_KEY
+      remoteRef:
+        key: kadis-ad77fef6-backups-aws-secret-access-key
+        version: latest

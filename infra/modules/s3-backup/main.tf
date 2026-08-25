@@ -132,3 +132,61 @@ resource "aws_iam_access_key" "backup_user_key" {
   count = var.create_user ? 1 : 0
   user  = aws_iam_user.backup_user[0].name
 }
+
+// ---------------------------------------------------------------------------
+// Optional: lifecycle rules
+// The `lifecycle_rules` variable existed long before this resource did, so it
+// was silently ignored — passing rules changed nothing. Retention belongs here
+// rather than in whatever job writes the backups: S3 expires objects whether or
+// not the cluster is healthy, and a job that prunes its own history is one bug
+// away from deleting the wrong thing.
+//
+// Each element accepts: id, prefix, and any of expiration_days,
+// noncurrent_version_days, abort_incomplete_multipart_days. Omitted keys mean
+// "no such rule clause".
+// ---------------------------------------------------------------------------
+
+resource "aws_s3_bucket_lifecycle_configuration" "this" {
+  count  = length(var.lifecycle_rules) > 0 ? 1 : 0
+  bucket = aws_s3_bucket.this.id
+
+  dynamic "rule" {
+    for_each = var.lifecycle_rules
+
+    content {
+      id     = rule.value.id
+      status = try(rule.value.status, "Enabled")
+
+      filter {
+        prefix = try(rule.value.prefix, "")
+      }
+
+      dynamic "expiration" {
+        for_each = try(rule.value.expiration_days, null) != null ? [rule.value.expiration_days] : []
+        content {
+          days = expiration.value
+        }
+      }
+
+      // Only meaningful with versioning on: this is what stops "deleted"
+      // objects from lingering as noncurrent versions you still pay for.
+      dynamic "noncurrent_version_expiration" {
+        for_each = try(rule.value.noncurrent_version_days, null) != null ? [rule.value.noncurrent_version_days] : []
+        content {
+          noncurrent_days = noncurrent_version_expiration.value
+        }
+      }
+
+      // Failed multipart uploads leave parts behind that are billed but
+      // invisible in `aws s3 ls`.
+      dynamic "abort_incomplete_multipart_upload" {
+        for_each = try(rule.value.abort_incomplete_multipart_days, null) != null ? [rule.value.abort_incomplete_multipart_days] : []
+        content {
+          days_after_initiation = abort_incomplete_multipart_upload.value
+        }
+      }
+    }
+  }
+
+  depends_on = [aws_s3_bucket_versioning.this]
+}

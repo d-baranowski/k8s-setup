@@ -1,0 +1,192 @@
+# Hourly full backup of the Płatnik database to S3.
+#
+# Two steps, because SQL Server can't do it in one: Express edition does not
+# support BACKUP TO URL for S3-compatible storage (Microsoft excludes Express
+# and Express with Advanced Services explicitly), so the backup goes to the
+# database volume first and a second container ships it to the bucket. Backup
+# COMPRESSION is likewise Standard+, so the dump step gzips instead — it has to
+# happen there because the aws-cli image ships no gzip.
+#
+#   BACKUP DATABASE -> /var/opt/mssql/backup/*.bak -> gzip -> s3://
+#
+# Retention lives in S3, not here: the bucket's lifecycle rule (infra/kadis,
+# module s3-backup) expires objects after 14 days and their noncurrent versions
+# after 7. A job that prunes its own history is one bug away from deleting the
+# wrong thing, and S3 expires objects whether or not the cluster is healthy.
+#
+# Local cleanup is unconditional and belt-and-braces — a `trap` on exit plus a
+# sweep at the start of the next run. The backup directory is on the *database*
+# volume, so an orphaned .bak is not untidiness, it's a countdown to a full
+# disk taking SQL Server down with it.
+#
+# TO RESTORE: ../../../restore_kadis_db.sh (repo root). Its header carries the
+# manual kubectl/sqlcmd fallback if the script itself is broken.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: platnik-backup
+  namespace: sqlserver
+  labels:
+    app: sqlserver
+    component: backup
+spec:
+  schedule: "0 * * * *"
+  timeZone: "Europe/Warsaw"
+  # Never let a slow backup overlap the next hour's.
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: sqlserver
+            component: backup
+        spec:
+          restartPolicy: Never
+          # mssql-data-sqlserver-0 is a local-path RWO volume whose PV is pinned
+          # to may-chang. Two pods may mount an RWO volume at once *on the same
+          # node*; scheduling this anywhere else fails with a multi-attach error.
+          nodeSelector:
+            kubernetes.io/hostname: may-chang
+          # The .bak is written by the sqlservr process as uid 10001, so the
+          # uploader has to run as the same user to read it.
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+          volumes:
+            - name: mssql-data
+              persistentVolumeClaim:
+                claimName: mssql-data-sqlserver-0
+            # Carries the generated filename from the dump step to the upload.
+            - name: handoff
+              emptyDir: {}
+          initContainers:
+            - name: dump
+              # mssql-tools publishes no versioned tag, so the digest is the
+              # only real pin. Resolved 2026-08-25 with
+              #   docker buildx imagetools inspect mcr.microsoft.com/mssql-tools:latest
+              image: mcr.microsoft.com/mssql-tools@sha256:62556500522072535cb3df2bb5965333dded9be47000473e9e0f84118e248642
+              env:
+                - name: SQL_HOST
+                  value: "sqlserver"
+                - name: PLATNIK_DB
+                  value: "platnik"
+                - name: BACKUP_DIR
+                  value: "/var/opt/mssql/backup"
+                - name: BACKUP_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: sqlserver-backup-password
+                      key: password
+              volumeMounts:
+                - name: mssql-data
+                  mountPath: /var/opt/mssql
+                - name: handoff
+                  mountPath: /run/backup
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+                  SQLCMD=/opt/mssql-tools/bin/sqlcmd
+
+                  mkdir -p "$BACKUP_DIR"
+
+                  # Anything still here is debris from a run that was killed
+                  # before its trap could fire. Nothing else would ever remove
+                  # it, and this volume is the database's.
+                  shopt -s nullglob
+                  for stale in "$BACKUP_DIR"/*.bak "$BACKUP_DIR"/*.bak.gz; do
+                    echo "sweeping stale file: $stale ($(stat -c %s "$stale") bytes)"
+                    rm -f "$stale"
+                  done
+                  shopt -u nullglob
+
+                  TS="$(date -u +%Y%m%dT%H%M%SZ)"
+                  BAK="$BACKUP_DIR/platnik_$TS.bak"
+                  echo "$TS" > /run/backup/ts
+
+                  echo "== backing up $PLATNIK_DB to $BAK =="
+                  "$SQLCMD" -S "$SQL_HOST" -U sqlserver_backup -P "$BACKUP_PASSWORD" -b -x -i /dev/stdin <<SQL
+                  BACKUP DATABASE [$PLATNIK_DB] TO DISK = N'$BAK'
+                  WITH FORMAT, INIT, CHECKSUM, STATS = 10;
+                  SQL
+
+                  # Cheap insurance against shipping a corrupt file to S3.
+                  echo "== verifying =="
+                  "$SQLCMD" -S "$SQL_HOST" -U sqlserver_backup -P "$BACKUP_PASSWORD" -b -x -i /dev/stdin <<SQL
+                  RESTORE VERIFYONLY FROM DISK = N'$BAK' WITH CHECKSUM;
+                  SQL
+
+                  # Compress here rather than in the uploader: the aws-cli
+                  # image ships no gzip (nor `which`), and Express has no
+                  # native BACKUP ... WITH COMPRESSION.
+                  echo "== compressing =="
+                  gzip -f "$BAK"
+                  echo "$BAK.gz" > /run/backup/path
+                  ls -la "$BAK.gz"
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "1"
+                  memory: "512Mi"
+          containers:
+            - name: upload
+              # aws-cli 2.36.30, released 2026-08-24 — newest at the time this
+              # was written. Bump deliberately, not by floating on :latest.
+              image: amazon/aws-cli:2.36.30@sha256:da37c08f8e00a64c09acd46e8ce5c3dd30b291046029def45566aa9ccd7b398b
+              env:
+                - name: AWS_REGION
+                  value: "eu-central-1"
+                - name: BUCKET
+                  value: "kadis-ad77fef6-backups"
+                - name: PREFIX
+                  value: "sqlserver/platnik"
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: sqlserver-backup-aws-creds
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sqlserver-backup-aws-creds
+                      key: AWS_SECRET_ACCESS_KEY
+              volumeMounts:
+                - name: mssql-data
+                  mountPath: /var/opt/mssql
+                - name: handoff
+                  mountPath: /run/backup
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+                  GZ="$(cat /run/backup/path)"
+                  TS="$(cat /run/backup/ts)"
+
+                  # Fires on success, failure and signal alike. A missed backup
+                  # is recoverable; a full database volume is an outage.
+                  trap 'rm -f "$GZ" "${GZ%.gz}"' EXIT
+
+                  KEY="$PREFIX/platnik_$TS.bak.gz"
+                  echo "== uploading $GZ to s3://$BUCKET/$KEY =="
+                  aws s3 cp "$GZ" "s3://$BUCKET/$KEY" --only-show-errors
+
+                  # Confirm it's really there before we throw the local copy
+                  # away — `aws s3 cp` exiting 0 is not the same as the object
+                  # being readable.
+                  SIZE="$(aws s3api head-object --bucket "$BUCKET" --key "$KEY" --query ContentLength --output text)"
+                  echo "uploaded: s3://$BUCKET/$KEY ($SIZE bytes)"
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "1"
+                  memory: "512Mi"

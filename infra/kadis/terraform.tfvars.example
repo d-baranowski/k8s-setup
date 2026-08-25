@@ -1,0 +1,3 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+gcp_project_id = "danb-ubuntu-k0s"
+aws_region     = "eu-central-1"
