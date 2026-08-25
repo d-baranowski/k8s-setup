@@ -84,20 +84,25 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
           # Steady-state serving is a few hundred MB; the limit exists for the
-          # boot build. .npmrc allows a 4 GiB heap (node-options=
-          # --max-old-space-size=4096), but the build never gets near it —
-          # measured peak on the first real rollout was ~2.2 GiB, so 3Gi is the
-          # observed number plus room rather than the theoretical ceiling. Both
-          # nodes are tight on memory, so an over-provisioned limit here costs
-          # other workloads. If OpenSeoOOMKilled ever fires, this is the value
-          # to raise.
+          # boot build, which .npmrc gives a 4 GiB heap (node-options=
+          # --max-old-space-size=4096) on top of workerd and native allocations.
+          #
+          # Do NOT trim this to "the peak kubectl top reported". We tried
+          # exactly that: top sampled ~2.2 GiB, 3Gi looked generous, and the
+          # next rollout OOMKilled at 2962Mi. `kubectl top` polls on a ~15-30s
+          # cycle and simply misses the spike in a build this short. Trust the
+          # 4 GiB heap ceiling, not the sampled number.
+          #
+          # Both nodes are tight on memory, so this is the transient spike most
+          # likely to break the deployment — OpenSeoOOMKilled in alerts.yaml
+          # watches for it.
           resources:
             requests:
               cpu: "500m"
               memory: "1Gi"
             limits:
               cpu: "2"
-              memory: "3Gi"
+              memory: "5Gi"
       volumes:
         - name: data
           persistentVolumeClaim:
