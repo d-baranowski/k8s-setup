@@ -52,11 +52,14 @@ spec:
           # node*; scheduling this anywhere else fails with a multi-attach error.
           nodeSelector:
             kubernetes.io/hostname: may-chang
-          # The .bak is written by the sqlservr process as uid 10001, so the
-          # uploader has to run as the same user to read it.
+          # Runs as root, deliberately. The msodbcsql 13 driver in the
+          # mssql-tools image resolves the running UID against /etc/passwd and
+          # dies with "Driver's SQLAllocHandle on SQL_HANDLE_HENV failed" if it
+          # isn't there — and 10001 (the mssql user on the server image) does
+          # not exist in the tools image. fsGroup keeps anything these
+          # containers create group-owned by mssql, so the server process is
+          # never locked out of its own volume.
           securityContext:
-            runAsUser: 10001
-            runAsGroup: 10001
             fsGroup: 10001
           volumes:
             - name: mssql-data

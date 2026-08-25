@@ -136,7 +136,10 @@ spec:
       restartPolicy: Never
       nodeSelector:
         kubernetes.io/hostname: $NODE
-      securityContext: { runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001 }
+      # root on purpose: msodbcsql 13 resolves its UID against /etc/passwd and
+      # fails with SQLAllocHandle if it can't, and 10001 is absent from the
+      # tools image. fsGroup keeps created files group-owned by mssql.
+      securityContext: { fsGroup: 10001 }
       volumes:
         - name: mssql-data
           persistentVolumeClaim: { claimName: $PVC }
