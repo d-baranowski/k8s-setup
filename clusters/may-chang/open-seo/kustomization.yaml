@@ -6,6 +6,7 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - dataforseo-secret.yaml
+  - ghcr-pull-secret.yaml
   - configmap.yaml
   - pvc.yaml
   - deployment.yaml

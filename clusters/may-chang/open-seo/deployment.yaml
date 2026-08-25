@@ -24,6 +24,11 @@ spec:
       # The upstream image runs as root and builds into /app at start; there is
       # no non-root variant, so no securityContext override here.
       terminationGracePeriodSeconds: 30
+      # The image is public, but anonymous ghcr.io pulls are rate-limited by
+      # source IP and fail with a 403 that looks like an auth error. See
+      # ghcr-pull-secret.yaml.
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       containers:
         - name: open-seo
           # Pinned to the current release. `latest` would silently roll the app
