@@ -84,17 +84,20 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
           # Steady-state serving is a few hundred MB; the limit exists for the
-          # boot build, which .npmrc gives a 4 GiB heap (node-options=
-          # --max-old-space-size=4096). Both nodes are tight on memory, so that
-          # transient spike is the most likely way this deployment breaks —
-          # OpenSeoOOMKilled in alerts.yaml watches for exactly that.
+          # boot build. .npmrc allows a 4 GiB heap (node-options=
+          # --max-old-space-size=4096), but the build never gets near it —
+          # measured peak on the first real rollout was ~2.2 GiB, so 3Gi is the
+          # observed number plus room rather than the theoretical ceiling. Both
+          # nodes are tight on memory, so an over-provisioned limit here costs
+          # other workloads. If OpenSeoOOMKilled ever fires, this is the value
+          # to raise.
           resources:
             requests:
               cpu: "500m"
               memory: "1Gi"
             limits:
               cpu: "2"
-              memory: "5Gi"
+              memory: "3Gi"
       volumes:
         - name: data
           persistentVolumeClaim:
