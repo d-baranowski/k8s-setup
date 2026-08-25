@@ -119,17 +119,28 @@ spec:
                   WITH FORMAT, INIT, CHECKSUM, STATS = 10;
                   SQL
 
-                  # Cheap insurance against shipping a corrupt file to S3.
-                  echo "== verifying =="
-                  "$SQLCMD" -S "$SQL_HOST" -U sqlserver_backup -P "$BACKUP_PASSWORD" -b -x -i /dev/stdin <<SQL
-                  RESTORE VERIFYONLY FROM DISK = N'$BAK' WITH CHECKSUM;
-                  SQL
+                  # No RESTORE VERIFYONLY here, on purpose. SQL Server counts
+                  # it as a restore, so it demands CREATE DATABASE — which
+                  # db_backupoperator does not grant, and handing a backup
+                  # account the right to create databases costs more than the
+                  # check is worth. What we rely on instead:
+                  #   - BACKUP ... WITH CHECKSUM above, which validates every
+                  #     page checksum as it reads and fails on a corrupt page
+                  #   - gzip -t below, on the exact bytes being uploaded
+                  #   - the periodic restore rehearsal (restore_kadis_db.sh),
+                  #     which is the only check that proves recoverability
+                  # If you ever want VERIFYONLY back, the narrow way is
+                  # `GRANT CREATE DATABASE TO [sqlserver_backup]` in master.
 
                   # Compress here rather than in the uploader: the aws-cli
                   # image ships no gzip (nor `which`), and Express has no
                   # native BACKUP ... WITH COMPRESSION.
                   echo "== compressing =="
                   gzip -f "$BAK"
+
+                  echo "== checking the compressed stream =="
+                  gzip -t "$BAK.gz"
+
                   echo "$BAK.gz" > /run/backup/path
                   ls -la "$BAK.gz"
               resources:
