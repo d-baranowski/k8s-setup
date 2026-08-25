@@ -11,3 +11,4 @@ resources:
   - service.yaml
   - platnik-bootstrap-job.yaml
   - backup-cronjob.yaml
+  - alerts.yaml

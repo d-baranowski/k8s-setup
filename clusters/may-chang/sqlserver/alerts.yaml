@@ -1,0 +1,111 @@
+# Alerts for the Płatnik SQL Server and its backups.
+#
+# The backup CronJob is the kind of thing that fails silently: nobody looks at
+# it, and the day you find out it stopped is the day you needed it. These rules
+# make that noisy instead.
+#
+# Prometheus discovers PrometheusRules in every namespace
+# (ruleSelectorNilUsesHelmValues: false + empty ruleNamespaceSelector in
+# observability/helmrelease-kube-prometheus-stack.yaml), so this lives next to
+# the workload it describes rather than in the observability directory.
+#
+# Every expression below was checked against the live metrics before being
+# written — including that kube_job_failed carries a `condition` label, which
+# is easy to miss and quietly breaks the obvious version of the rule.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sqlserver-alerts
+  namespace: sqlserver
+  labels:
+    app: sqlserver
+    component: alerts
+spec:
+  groups:
+    - name: platnik-backup
+      rules:
+        # A single failed run. Hourly schedule means the next attempt is never
+        # far away, so this is a warning — but a failure that repeats will keep
+        # the alert firing rather than flapping away.
+        - alert: PlatnikBackupJobFailed
+          expr: kube_job_failed{namespace="sqlserver", job_name=~"platnik-backup.*", condition="true"} > 0
+          for: 5m
+          labels:
+            severity: warning
+            service: platnik
+          annotations:
+            summary: "Płatnik backup job {{ $labels.job_name }} failed"
+            description: >-
+              The hourly backup of the platnik database failed. Check
+              `kubectl -n sqlserver logs job/{{ $labels.job_name }} --all-containers`.
+              Common causes: expired S3 credentials, or the database being
+              unreachable. Backups older than 14 days are already gone, so
+              don't leave this for long.
+
+        # The one that actually matters. A job that never runs produces no
+        # failed job to alert on, so watch the success timestamp instead:
+        # missing three hourly runs in a row is a real problem.
+        - alert: PlatnikBackupStale
+          expr: time() - kube_cronjob_status_last_successful_time{namespace="sqlserver", cronjob="platnik-backup"} > 3 * 3600
+          for: 15m
+          labels:
+            severity: critical
+            service: platnik
+          annotations:
+            summary: "No successful Płatnik backup for over 3 hours"
+            description: >-
+              Last success was {{ $value | humanizeDuration }} ago, against an
+              hourly schedule. The database is running without a recent backup.
+              Check `kubectl -n sqlserver get cronjob,jobs -l component=backup`.
+
+        # Covers what the rule above cannot: if the CronJob is deleted or
+        # suspended, its metric disappears entirely and a `time() - metric`
+        # comparison silently stops evaluating.
+        - alert: PlatnikBackupCronJobMissing
+          expr: absent(kube_cronjob_status_last_successful_time{namespace="sqlserver", cronjob="platnik-backup"})
+          for: 30m
+          labels:
+            severity: critical
+            service: platnik
+          annotations:
+            summary: "The Płatnik backup CronJob has disappeared"
+            description: >-
+              No metric for cronjob platnik-backup in namespace sqlserver. It
+              has been deleted, suspended, or has never succeeded since
+              kube-state-metrics restarted. Nothing is backing the database up.
+
+    - name: platnik-database
+      rules:
+        - alert: SqlServerDown
+          expr: kube_statefulset_status_replicas_ready{namespace="sqlserver", statefulset="sqlserver"} < 1
+          for: 10m
+          labels:
+            severity: critical
+            service: platnik
+          annotations:
+            summary: "SQL Server is not ready"
+            description: >-
+              The sqlserver StatefulSet has no ready replica, so Płatnik cannot
+              connect for anyone. `kubectl -n sqlserver describe pod sqlserver-0`
+              and `kubectl -n sqlserver logs sqlserver-0`.
+
+        # The backups are written to the database's own volume before upload,
+        # so a full disk takes the database down. Note local-path reports the
+        # underlying node filesystem rather than the 20Gi PVC request, so this
+        # tracks free space on may-chang's disk — which is the real constraint.
+        - alert: PlatnikVolumeLow
+          expr: >-
+            kubelet_volume_stats_available_bytes{namespace="sqlserver", persistentvolumeclaim="mssql-data-sqlserver-0"}
+            / kubelet_volume_stats_capacity_bytes{namespace="sqlserver", persistentvolumeclaim="mssql-data-sqlserver-0"}
+            < 0.15
+          for: 30m
+          labels:
+            severity: warning
+            service: platnik
+          annotations:
+            summary: "Płatnik database volume below 15% free"
+            description: >-
+              {{ $value | humanizePercentage }} free on the volume backing
+              sqlserver-0. Backups stage a .bak here before upload, so this
+              affects both the database and its backups. Check for orphaned
+              files: `kubectl -n sqlserver exec sqlserver-0 -- ls -la /var/opt/mssql/backup`.
