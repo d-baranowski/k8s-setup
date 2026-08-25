@@ -25,8 +25,13 @@ spec:
         # 15m, not the usual 5m: a cold start legitimately spends several
         # minutes rebuilding before it can serve, and a restart during a node
         # reboot would otherwise page every time.
+        # The `spec_replicas > 0` guard matters: without it, deliberately
+        # scaling to 0 (see deployment.yaml) makes this alert fire forever, and
+        # a permanently firing alert is one nobody reads.
         - alert: OpenSeoDown
-          expr: kube_deployment_status_replicas_available{namespace="open-seo", deployment="open-seo"} < 1
+          expr: >-
+            kube_deployment_status_replicas_available{namespace="open-seo", deployment="open-seo"} < 1
+            and kube_deployment_spec_replicas{namespace="open-seo", deployment="open-seo"} > 0
           for: 15m
           labels:
             severity: warning

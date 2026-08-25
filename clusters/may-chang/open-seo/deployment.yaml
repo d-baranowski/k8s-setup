@@ -8,7 +8,12 @@ metadata:
     app: open-seo
     component: deployment
 spec:
-  replicas: 1
+  # Parked at 0 on 2026-08-25: not in use for a while, and the pod reserves
+  # 500m CPU / 1Gi memory on nodes that are already tight. Everything else is
+  # left in place — the PVC keeps the D1 database and Durable Object state, the
+  # secrets stay synced, and the Ingress keeps the tailnet name registered — so
+  # bringing it back is this one line, plus the usual multi-minute boot build.
+  replicas: 0
   selector:
     matchLabels: *labels
   # Recreate, not RollingUpdate: the data PVC is ReadWriteOnce on a
