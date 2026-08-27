@@ -43,6 +43,51 @@ resource "cloudflare_zero_trust_access_policy" "production_webhook_bypass" {
   }
 }
 
+# Login walls for the utro UIs (already live). Shared CF policy id
+# 99441eca-bb84-49ed-9318-ff617bd30bb8 is modelled twice so each app stays
+# associated in this module.
+resource "cloudflare_zero_trust_access_application" "utro_test_ui" {
+  zone_id          = local.zone_inspi_cloud
+  name             = "inspi.cloud"
+  domain           = "utro-test.inspi.cloud"
+  type             = "self_hosted"
+  session_duration = "24h"
+}
+
+resource "cloudflare_zero_trust_access_policy" "utro_test_ui_allow" {
+  zone_id          = local.zone_inspi_cloud
+  application_id   = cloudflare_zero_trust_access_application.utro_test_ui.id
+  name             = "Allowed Emails"
+  decision         = "allow"
+  precedence       = 1
+  session_duration = "24h"
+
+  include {
+    email = local.allowed_emails
+  }
+}
+
+resource "cloudflare_zero_trust_access_application" "utro_ui" {
+  zone_id          = local.zone_inspiration_particle
+  name             = "Utro"
+  domain           = "utro.inspiration-particle.com"
+  type             = "self_hosted"
+  session_duration = "24h"
+}
+
+resource "cloudflare_zero_trust_access_policy" "utro_ui_allow" {
+  zone_id          = local.zone_inspiration_particle
+  application_id   = cloudflare_zero_trust_access_application.utro_ui.id
+  name             = "Allowed Emails"
+  decision         = "allow"
+  precedence       = 1
+  session_duration = "24h"
+
+  include {
+    email = local.allowed_emails
+  }
+}
+
 # The customer app and its API are public (customers are not org members). Bypass
 # Cloudflare Access; auth is enforced by Firebase + the customer-gateway, not Access.
 resource "cloudflare_zero_trust_access_application" "customer_app" {
