@@ -9,7 +9,7 @@ data:
   CONTACT_PHONE: "+48573800012"
   SNS_TOPIC_ARN: "arn:aws:sns:eu-central-1:277265293752:kadis-contact"
   AWS_REGION: "eu-central-1"
-  ALLOWED_ORIGINS: "https://kadis.inspi.cloud"
+  ALLOWED_ORIGINS: "https://kadis.skarla.pl"
   TRUST_PROXY: "true"
   DRY_RUN: "false"
   API_KEY: "kadis_contact_8f2c4a91e7b35d60"
