@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: utr-staging-assets-migrate
+  namespace: default
+  labels:
+    app: utr-staging-assets-migrate
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: utr-staging-assets-migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrate
+        image: ghcr.io/inspiration-particle/utro-assets:0.1.70 # {"$imagepolicy": "flux-system:utr-staging-assets"}
+        # The shared docker/Dockerfile entrypoint is `sh -c "/app/$APP_NAME"`,
+        # so args alone become $0 for that shell and never reach the binary —
+        # the container would start the API server instead of migrating.
+        command: ["/app/assets"]
+        args: ["-migrate=true"]
+        env:
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_NAME
+          value: "utr_staging"
+        - name: DB_HOST
+          value: "pg-staging-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-migrator.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-migrator.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: password

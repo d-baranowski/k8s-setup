@@ -11,6 +11,10 @@ resources:
   - notification-migrate-job.yaml
   - notification-statefulset.yaml
   - notification-service.yaml
+  - assets-migrate-job.yaml
+  - assets-statefulset.yaml
+  - assets-service.yaml
+  - utr-staging-assets-s3-credentials.yaml
   - core-event-migrate-job.yaml
   - core-event-statefulset.yaml
   - bootstrap-statefulset.yaml

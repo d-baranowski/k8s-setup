@@ -1,0 +1,69 @@
+# One-shot: move the base64 images still sitting in core into the assets
+# service, stamping the *_asset_id columns as it goes.
+#
+# This is transitional and MUST run before 20260826100000 drops those columns.
+# That migration refuses while any row still holds an image with no asset id —
+# staging currently has 15 — so until this has run, core migrations stop there
+# and every later migration stays unapplied.
+#
+# Deliberately NOT in kustomization.yaml. Flux applies a kustomization's
+# resources without ordering, so leaving it in would race the core migrate job
+# it has to precede. Apply it by hand, once, after the assets service is up:
+#
+#   kubectl apply -f assets-backfill-job.yaml
+#   kubectl wait --for=condition=complete job/utr-staging-assets-backfill -n default --timeout=10m
+#
+# Idempotent: rows already stamped are skipped, and the assets service
+# de-duplicates on checksum, so a re-run reuses what it already created.
+# Safe to leave applied and safe to delete once the columns are gone.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: utr-staging-assets-backfill
+  namespace: default
+  labels:
+    app: utr-staging-assets-backfill
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: utr-staging-assets-backfill
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: backfill
+        image: ghcr.io/inspiration-particle/utro-core:0.1.70 # {"$imagepolicy": "flux-system:utr-staging-core"}
+        command: ["/app/core"]
+        args: ["-backfill-assets=true"]
+        env:
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: SERVICE_ENV
+          value: "staging"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_NAME
+          value: "utr_staging"
+        - name: DB_HOST
+          value: "pg-staging-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        # Uploads go through the assets service, not straight to S3, so the
+        # renditions and checksum dedupe are produced by the same code path a
+        # normal upload uses.
+        - name: ASSETS_SERVICE_URL
+          value: "http://utr-staging-assets.default.svc.cluster.local:9003"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: password

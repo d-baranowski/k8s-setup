@@ -23,6 +23,10 @@ spec:
         - containerPort: 3000
           name: http
         env:
+        # Full URL: the Next BFF at /api/assets proxies multipart uploads here,
+        # which keeps the gateway out of the byte path while preserving auth.
+        - name: ASSETS_API_URL
+          value: "http://utr-staging-assets.default.svc.cluster.local:9003"
         - name: TIMEZONE
           value: "Europe/Warsaw"
         - name: NODE_ENV
