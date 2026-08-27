@@ -38,3 +38,45 @@ output "combined_external_secret_path" {
   value       = var.create_user ? local_file.external_secret_combined_aws_creds[0].filename : ""
 }
 
+
+# ---------------------------------------------------------------------------
+# Assets service object storage + CDN
+# ---------------------------------------------------------------------------
+
+output "assets_distribution_ids" {
+  description = "CloudFront distribution ids, for cache invalidations"
+  value = {
+    staging = module.assets_staging.distribution_id
+    prod    = module.assets_prod.distribution_id
+  }
+}
+
+output "assets_distribution_domain_names" {
+  description = "CloudFront domain names the CDN CNAMEs point at"
+  value = {
+    staging = module.assets_staging.distribution_domain_name
+    prod    = module.assets_prod.distribution_domain_name
+  }
+}
+
+# Everything the assets statefulsets need that is not a secret. The credentials
+# arrive separately through External Secrets.
+output "assets_service_env" {
+  description = "Non-secret env values for the assets statefulsets"
+  value = {
+    staging = {
+      STORAGE_ENDPOINT       = "s3.${var.aws_region}.amazonaws.com"
+      STORAGE_BUCKET         = module.assets_staging.bucket_id
+      STORAGE_REGION         = var.aws_region
+      STORAGE_USE_SSL        = "true"
+      ASSETS_PUBLIC_BASE_URL = module.assets_staging.public_base_url
+    }
+    prod = {
+      STORAGE_ENDPOINT       = "s3.${var.aws_region}.amazonaws.com"
+      STORAGE_BUCKET         = module.assets_prod.bucket_id
+      STORAGE_REGION         = var.aws_region
+      STORAGE_USE_SSL        = "true"
+      ASSETS_PUBLIC_BASE_URL = module.assets_prod.public_base_url
+    }
+  }
+}

@@ -18,6 +18,28 @@ provider "aws" {
   }
 }
 
+# CloudFront will only attach certificates issued in us-east-1, regardless of
+# where the buckets live. This alias exists solely to hold those certificates.
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+
+  default_tags {
+    tags = {
+      application = "utro"
+      owner       = "k8s-setup/infra/utro"
+      utro        = "true"
+      terraform   = "true"
+      github      = "k8s-setup"
+    }
+  }
+}
+
+# Reads CLOUDFLARE_API_TOKEN from the environment. Only used when
+# assets_manage_dns is true; with it false no cloudflare resource is
+# instantiated and the token is not needed.
+provider "cloudflare" {}
+
 # Google provider configuration
 # Use GOOGLE_APPLICATION_CREDENTIALS env var or gcloud application-default login
 provider "google" {
@@ -35,10 +57,10 @@ provider "google" {
 
   default_labels = {
     application = "utro"
-    owner = "k8s-setup-infra-utro"
-    utro = "true"
-    terraform = "true"
-    github = "k8s-setup"
+    owner       = "k8s-setup-infra-utro"
+    utro        = "true"
+    terraform   = "true"
+    github      = "k8s-setup"
   }
 }
 

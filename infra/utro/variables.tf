@@ -74,3 +74,67 @@ variable "aws_profile" {
     type        = string
     default     = "tf-admin"
 }
+# ---------------------------------------------------------------------------
+# Assets service object storage + CDN (UTR-000266)
+# ---------------------------------------------------------------------------
+
+variable "assets_staging_bucket_name" {
+  description = "S3 bucket for the staging asset store. Bucket names are globally unique across all AWS accounts."
+  type        = string
+  default     = "utro-assets-staging"
+}
+
+variable "assets_prod_bucket_name" {
+  description = "S3 bucket for the production asset store. Bucket names are globally unique across all AWS accounts."
+  type        = string
+  default     = "utro-assets"
+}
+
+variable "assets_staging_domain" {
+  description = "Hostname the staging CDN serves on. Follows the utro-test naming already on inspi.cloud."
+  type        = string
+  default     = "utro-test-assets.inspi.cloud"
+}
+
+variable "assets_staging_hosted_zone" {
+  description = "Cloudflare zone holding the staging assets domain"
+  type        = string
+  default     = "inspi.cloud"
+}
+
+variable "assets_prod_domain" {
+  description = "Hostname the production CDN serves on"
+  type        = string
+  default     = "assets.inspiration-particle.com"
+}
+
+variable "assets_prod_hosted_zone" {
+  description = "Cloudflare zone holding the production assets domain"
+  type        = string
+  default     = "inspiration-particle.com"
+}
+
+variable "assets_manage_dns" {
+  description = "Create the ACM validation records and the CDN CNAMEs in Cloudflare. Requires CLOUDFLARE_API_TOKEN. The CNAMEs must stay DNS-only (not proxied)."
+  type        = bool
+  default     = true
+}
+
+# Separate from create_user, which stays false for the backup bucket. The assets
+# service authenticates with static keys because k3s has no OIDC provider for
+# IRSA, so this must be true for the service to be able to write anything.
+variable "assets_create_user" {
+  description = "Create IAM users with static access keys for the assets service and export them to Google Secret Manager"
+  type        = bool
+  default     = true
+}
+
+variable "assets_cluster_manifests_path" {
+  description = <<-EOT
+    Path to the cluster manifests directory the generated assets ExternalSecret
+    files are written into, one per environment subdirectory (relative paths are
+    resolved from this stack's directory). Empty disables generation.
+  EOT
+  type        = string
+  default     = "../../clusters/may-chang"
+}
