@@ -18,7 +18,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: migrate
-        image: ghcr.io/inspiration-particle/utro-assets:0.1.76 # {"$imagepolicy": "flux-system:utr-staging-assets"}
+        image: ghcr.io/inspiration-particle/utro-assets:0.1.77 # {"$imagepolicy": "flux-system:utr-staging-assets"}
         # The shared docker/Dockerfile entrypoint is `sh -c "/app/$APP_NAME"`,
         # so args alone become $0 for that shell and never reach the binary —
         # the container would start the API server instead of migrating.
