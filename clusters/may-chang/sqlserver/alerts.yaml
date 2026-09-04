@@ -92,7 +92,7 @@ spec:
         # The backups are written to the database's own volume before upload,
         # so a full disk takes the database down. Note local-path reports the
         # underlying node filesystem rather than the 20Gi PVC request, so this
-        # tracks free space on may-chang's disk — which is the real constraint.
+        # tracks free space on kadis's disk — which is the real constraint.
         - alert: PlatnikVolumeLow
           expr: >-
             kubelet_volume_stats_available_bytes{namespace="sqlserver", persistentvolumeclaim="mssql-data-sqlserver-0"}

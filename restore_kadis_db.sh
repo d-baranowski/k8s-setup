@@ -24,7 +24,7 @@
 #     -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d
 #   aws s3 ls s3://kadis-ad77fef6-backups/sqlserver/platnik/ --region eu-central-1
 #
-#   # 2. get the file onto the database volume (a pod on may-chang mounting
+#   # 2. get the file onto the database volume (a pod on kadis mounting
 #   #    the PVC mssql-data-sqlserver-0 at /var/opt/mssql), gunzip it, then:
 #   /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$SA" -Q \
 #     "RESTORE FILELISTONLY FROM DISK = N'/var/opt/mssql/backup/x.bak'"
@@ -45,7 +45,7 @@ BUCKET="kadis-ad77fef6-backups"
 PREFIX="sqlserver/platnik"
 REGION="eu-central-1"
 PVC="mssql-data-sqlserver-0"
-NODE="may-chang"
+NODE="kadis"
 
 AWSCLI_IMAGE="amazon/aws-cli:2.36.30@sha256:da37c08f8e00a64c09acd46e8ce5c3dd30b291046029def45566aa9ccd7b398b"
 MSSQL_IMAGE="mcr.microsoft.com/mssql-tools@sha256:62556500522072535cb3df2bb5965333dded9be47000473e9e0f84118e248642"

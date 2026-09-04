@@ -23,9 +23,22 @@ spec:
         runAsGroup: 10001
         fsGroup: 10001
       terminationGracePeriodSeconds: 60
+      # mssql-data-sqlserver-0 is a local-path RWO volume: its PV carries a hard
+      # nodeAffinity on whichever node first bound it, so the data cannot follow
+      # a rescheduling. Stated explicitly rather than left to the PV, so the
+      # constraint is visible here and not just implied by where the volume
+      # happens to live. Moving this off kadis is a backup-and-restore, not an
+      # edit — see restore_kadis_db.sh.
+      nodeSelector:
+        kubernetes.io/hostname: kadis
       containers:
         - name: mssql
-          image: mcr.microsoft.com/mssql/server:2022-latest
+          # SQL Server 2022 CU26 (16.0.4265.3). Digest-pinned like every other
+          # image in this directory: this is the one workload holding real
+          # ZUS-filed data, and a silent bump on a pod restart is not a risk
+          # worth carrying. Resolved 2026-09-04 — the build that had been
+          # running on may-chang, so the move changes the node and nothing else.
+          image: mcr.microsoft.com/mssql/server:2022-latest@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89
           imagePullPolicy: IfNotPresent
           ports:
             - name: mssql

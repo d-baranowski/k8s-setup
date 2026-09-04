@@ -48,10 +48,11 @@ spec:
         spec:
           restartPolicy: Never
           # mssql-data-sqlserver-0 is a local-path RWO volume whose PV is pinned
-          # to may-chang. Two pods may mount an RWO volume at once *on the same
+          # to kadis. Two pods may mount an RWO volume at once *on the same
           # node*; scheduling this anywhere else fails with a multi-attach error.
+          # Must match the StatefulSet's nodeSelector.
           nodeSelector:
-            kubernetes.io/hostname: may-chang
+            kubernetes.io/hostname: kadis
           # Runs as root, deliberately. The msodbcsql 13 driver in the
           # mssql-tools image resolves the running UID against /etc/passwd and
           # dies with "Driver's SQLAllocHandle on SQL_HANDLE_HENV failed" if it
