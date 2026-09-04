@@ -121,10 +121,9 @@ spec:
             # — it only grants the rights it needs once it exists.
             - name: PLATNIK_DB
               value: "platnik"
-            # Kept working (demoted into platnik_app) until both people are on
-            # their own logins; then drop it.
-            - name: LEGACY_LOGIN
-              value: "platnik"
+            # The shared `platnik` login that predated this Job is gone: both
+            # people are on named logins, so it was dropped on 2026-09-04 along
+            # with its database user. Nothing here recreates it.
             - name: SA_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -260,9 +259,11 @@ spec:
                 echo "   $PLATNIK_DB does not exist yet — run Płatnik's database wizard first,"
                 echo "   then re-run this Job to grant the rights it needs."
               else
-                # Every managed login, plus the legacy one, as a SQL literal list
-                # for the drift report below.
-                MANAGED="'$LEGACY_LOGIN','sqlserver_backup'"
+                # Every managed login as a SQL literal list for the drift report
+                # below. Anything else in platnik_app is now a genuine finding —
+                # the shared `platnik` login used to be the one standing
+                # exception, and it no longer exists.
+                MANAGED="'sqlserver_backup'"
                 for l in "${LOGINS[@]}"; do MANAGED="$MANAGED,'$l'"; done
 
                 sa_stdin <<SQL
@@ -305,7 +306,7 @@ spec:
               PRINT '   granted: read/write, ALTER/REFERENCES/EXECUTE on dbo, CREATE TABLE/VIEW/PROCEDURE';
               SQL
 
-                for l in "${LOGINS[@]}" "$LEGACY_LOGIN"; do
+                for l in "${LOGINS[@]}"; do
                   sa_stdin <<SQL
               SET NOCOUNT ON;
               USE [$PLATNIK_DB];
