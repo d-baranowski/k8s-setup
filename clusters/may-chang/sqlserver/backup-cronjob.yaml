@@ -98,7 +98,17 @@ spec:
                   set -euo pipefail
                   SQLCMD=/opt/mssql-tools/bin/sqlcmd
 
+                  # BACKUP DATABASE is executed by the *server* process (uid
+                  # 10001), not by this container, so the directory has to be
+                  # group-writable. This container is root and mkdir honours
+                  # its umask, which would leave 0755 root:mssql and fail the
+                  # backup with "Operating system error 5(Access is denied.)".
+                  # chmod is applied unconditionally, so a directory created
+                  # wrong by some earlier pod is repaired rather than inherited.
+                  # 2775: setgid, so files land in the mssql group regardless of
+                  # which of these jobs created the parent.
                   mkdir -p "$BACKUP_DIR"
+                  chmod 2775 "$BACKUP_DIR"
 
                   # Anything still here is debris from a run that was killed
                   # before its trap could fire. Nothing else would ever remove

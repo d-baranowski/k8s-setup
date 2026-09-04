@@ -159,7 +159,11 @@ spec:
           args:
             - |
               set -euo pipefail
+              # Group-writable and setgid: the server process (uid 10001) has
+              # to be able to write its own .bak files here later, and this
+              # container is root with a 022 umask. See backup-cronjob.yaml.
               mkdir -p /var/opt/mssql/backup
+              chmod 2775 /var/opt/mssql/backup
               echo "downloading s3://$BUCKET/$OBJECT"
               aws s3 cp "s3://$BUCKET/$OBJECT" /var/opt/mssql/backup/restore_$TS.bak.gz --only-show-errors
               ls -la /var/opt/mssql/backup/restore_$TS.bak.gz
