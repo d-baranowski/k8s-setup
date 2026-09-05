@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: utr-staging-customer-ui
+  namespace: default
+  labels:
+    app: utr-staging-customer-ui
+spec:
+  serviceName: utr-staging-customer-ui
+  replicas: 1
+  selector:
+    matchLabels:
+      app: utr-staging-customer-ui
+  template:
+    metadata:
+      labels:
+        app: utr-staging-customer-ui
+    spec:
+      containers:
+      - name: customer-ui
+        # A separate image from utro-customer-ui, not a separate config: the
+        # customer API host, the email-link return URL, the asset CDN origin and
+        # the Turnstile site key are NEXT_PUBLIC_* and are inlined into the
+        # client bundle at build time. The Jenkinsfile builds this variant from
+        # the same Dockerfile with the staging hostnames.
+        image: ghcr.io/inspiration-particle/utro-customer-ui-staging:0.1.79 # {"$imagepolicy": "flux-system:utr-staging-customer-ui"}
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        - name: NEXT_TELEMETRY_DISABLED
+          value: "1"
+        - name: SERVICE_VERSION
+          value: "0.1.79" # {"$imagepolicy": "flux-system:utr-staging-customer-ui:tag"}
+        # TCP probes: this is a public app with no /api health route (API routes
+        # are omitted so the same bundle can static-export for Capacitor).
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5

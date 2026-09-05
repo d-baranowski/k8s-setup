@@ -102,6 +102,33 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "utro" {
         tls_timeout            = "10s"
       }
     }
+    # Staging customer app + its API. Public, like their production
+    # counterparts: Cloudflare Access is bypassed for both hosts (access.tf)
+    # and auth is Firebase + the customer-gateway, not Access.
+    ingress_rule {
+      hostname = "customer-api.inspi.cloud"
+      service  = "http://utr-staging-customer-gateway.default.svc.cluster.local:9998"
+      origin_request {
+        connect_timeout        = "30s"
+        keep_alive_connections = 100
+        keep_alive_timeout     = "1m30s"
+        proxy_address          = "127.0.0.1"
+        tcp_keep_alive         = "30s"
+        tls_timeout            = "10s"
+      }
+    }
+    ingress_rule {
+      hostname = "customer.inspi.cloud"
+      service  = "http://utr-staging-customer-ui.default.svc.cluster.local:3000"
+      origin_request {
+        connect_timeout        = "30s"
+        keep_alive_connections = 100
+        keep_alive_timeout     = "1m30s"
+        proxy_address          = "127.0.0.1"
+        tcp_keep_alive         = "30s"
+        tls_timeout            = "10s"
+      }
+    }
     ingress_rule {
       service = "http_status:404"
     }

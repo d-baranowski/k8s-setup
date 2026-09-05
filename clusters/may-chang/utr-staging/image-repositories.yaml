@@ -88,3 +88,28 @@ spec:
   interval: 5m0s
   secretRef:
     name: ghcr-pull-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: utr-staging-customer-gateway
+  namespace: flux-system
+spec:
+  image: ghcr.io/inspiration-particle/utro-customer-gateway
+  interval: 5m0s
+  secretRef:
+    name: ghcr-pull-secret
+---
+# Distinct from utro-customer-ui: the prod and staging bundles differ in the
+# NEXT_PUBLIC_* baked in at build time, so they are two images built from one
+# Dockerfile rather than one image with two configs.
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: utr-staging-customer-ui
+  namespace: flux-system
+spec:
+  image: ghcr.io/inspiration-particle/utro-customer-ui-staging
+  interval: 5m0s
+  secretRef:
+    name: ghcr-pull-secret

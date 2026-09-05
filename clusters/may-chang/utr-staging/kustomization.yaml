@@ -23,6 +23,11 @@ resources:
   - gateway-service.yaml
   - ui-service.yaml
   - ui-statefulset.yaml
+  - customer-gateway-statefulset.yaml
+  - customer-gateway-service.yaml
+  - customer-ui-statefulset.yaml
+  - customer-ui-service.yaml
+  - utr-staging-turnstile-secret.yaml
   - image-repositories.yaml
   - image-policies.yaml
   - image-update-automation.yaml

@@ -9,6 +9,28 @@ resource "cloudflare_record" "staging_utro_test" {
   ttl     = 1
 }
 
+# Customer-facing app + its API for staging. Everything in inspi.cloud is a
+# test environment, so these carry no -test/-staging suffix of their own.
+# Orange-cloud like utro-test: TLS terminates at Cloudflare and the tunnel
+# carries plain HTTP to the cluster.
+resource "cloudflare_record" "staging_customer_app" {
+  zone_id = local.zone_inspi_cloud
+  name    = "customer"
+  content = "${cloudflare_zero_trust_tunnel_cloudflared.utro.id}.cfargotunnel.com"
+  type    = "CNAME"
+  proxied = true
+  ttl     = 1
+}
+
+resource "cloudflare_record" "staging_customer_api" {
+  zone_id = local.zone_inspi_cloud
+  name    = "customer-api"
+  content = "${cloudflare_zero_trust_tunnel_cloudflared.utro.id}.cfargotunnel.com"
+  type    = "CNAME"
+  proxied = true
+  ttl     = 1
+}
+
 # Public contact-form API. Orange-cloud like utro-test; TLS at Cloudflare.
 # Website origin is kadis.inspi.cloud (CloudFront, grey-cloud) — CORS allowlist
 # on the service must include https://kadis.inspi.cloud.
