@@ -1,0 +1,146 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: utr-staging-customer-gateway
+  namespace: default
+  labels:
+    app: utr-staging-customer-gateway
+spec:
+  serviceName: utr-staging-customer-gateway
+  # One replica: staging carries no traffic worth spreading, and the assets
+  # service already sets this precedent in this directory.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: utr-staging-customer-gateway
+  template:
+    metadata:
+      labels:
+        app: utr-staging-customer-gateway
+    spec:
+      containers:
+      - name: customer-gateway
+        # The prod manifest is pinned to 0.0.1, a tag that was never published —
+        # which is why that pod has been in ImagePullBackOff since it was
+        # created. Here Flux owns the tag: the first real one arrives with the
+        # next release (tools/release/services.sh now covers this image), and
+        # until then a pull failure is expected rather than a misconfiguration.
+        image: ghcr.io/inspiration-particle/utro-customer-gateway:0.1.79 # {"$imagepolicy": "flux-system:utr-staging-customer-gateway"}
+        ports:
+        - containerPort: 9998
+          name: api
+        - containerPort: 18008
+          name: health
+        env:
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: HEALTH_PORT
+          value: "18008"
+        - name: API_PORT
+          value: "9998"
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: SERVICE_NAME
+          value: "rpg.customer-gateway"
+        - name: SERVICE_ENV
+          value: "staging"
+        - name: SERVICE_VERSION
+          value: "0.1.79" # {"$imagepolicy": "flux-system:utr-staging-customer-gateway:tag"}
+        # Bare host:port, not a URL: AddProxiedService folds the value into
+        # url.URL.Host, so a scheme prefix yields an unresolvable hostname and a
+        # 502 on every call. The envconfig defaults ("http://rpg.core") are dev
+        # values and must be overridden here.
+        - name: CORE_SERVICE
+          value: "utr-staging-core.default.svc.cluster.local:9102"
+        # Required — the notification bell proxies MyNotificationService through
+        # this gateway. The prod manifest predates that service and omits this,
+        # which would fail validation at startup on the current image.
+        - name: NOTIFICATION_SERVICE
+          value: "utr-staging-notification.default.svc.cluster.local:9002"
+        - name: WITH_PERMISSIONS
+          value: "true"
+        - name: ENABLE_PERMISSIONS
+          value: "true"
+        - name: RPG_PERMISSIONS_FLAG
+          value: "true"
+        # Browser CORS, and the belt-and-braces Origin allow-list the public
+        # (anonymous) endpoints apply on top of it. Bearer auth, so no
+        # credentialed cookies ride along.
+        - name: API_CORS
+          value: "https://customer.inspi.cloud"
+        - name: PUBLIC_ALLOWED_ORIGINS
+          value: "https://customer.inspi.cloud"
+        # Turnstile guards the anonymous intake endpoint. Left enabled in
+        # staging on purpose: this host is genuinely public, and a staging that
+        # skips the CAPTCHA would not be testing the path prod runs. Startup
+        # fails rather than silently accepting every token if the secret is
+        # missing.
+        - name: CAPTCHA_ENABLED
+          value: "true"
+        - name: TURNSTILE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-turnstile
+              key: TURNSTILE_SECRET
+        # Firebase / Identity Platform. Staging shares the prod project, so it
+        # also shares the customer directory — a staging signup creates a real
+        # user in danb-ubuntu-k0s.
+        - name: FIREBASE_PROJECT_ID
+          value: "danb-ubuntu-k0s"
+        - name: FIREBASE_CHECK_REVOKED
+          value: "true"
+        - name: FIREBASE_CREDENTIALS_FILE
+          value: "/var/secrets/firebase/credentials.json"
+        - name: TR_ENABLED
+          value: "true"
+        - name: TR_ENDPOINT
+          value: "otel-collector.observability.svc.cluster.local:4318"
+        - name: TR_HTTPS
+          value: "false"
+        - name: DB_TRACE
+          value: "true"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_NAME
+          value: "utr_staging"
+        - name: DB_HOST
+          value: "pg-staging-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-user.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: password
+        volumeMounts:
+        - name: firebase-creds
+          mountPath: /var/secrets/firebase
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: health
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: health
+          initialDelaySeconds: 60
+          periodSeconds: 5
+      volumes:
+      # Shared with production. Both environments authenticate against the same
+      # Firebase project, and the ExternalSecret that materialises this lives in
+      # external-secrets-operator/resources/firebase-admin-secret.yaml in this
+      # same namespace — so staging needs no secret of its own.
+      - name: firebase-creds
+        secret:
+          secretName: utro-customer-gateway-firebase-admin
+          items:
+          - key: credentials.json
+            path: credentials.json

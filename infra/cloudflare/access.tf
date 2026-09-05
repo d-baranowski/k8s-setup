@@ -150,3 +150,51 @@ resource "cloudflare_zero_trust_access_policy" "customer_api_bypass" {
     everyone = true
   }
 }
+
+# Staging customer app + API. Public for the same reason production's are:
+# customers are not org members, so Access has no identity to check. Auth is
+# Firebase ID tokens verified by the customer-gateway.
+#
+# Declared explicitly rather than relying on there being no Access application
+# for these hostnames. The inspi.cloud apps above are scoped to exact hosts and
+# do not match these, but an explicit bypass means a future zone-wide policy
+# cannot silently put a login wall in front of customer signups.
+resource "cloudflare_zero_trust_access_application" "staging_customer_app" {
+  zone_id          = local.zone_inspi_cloud
+  name             = "Staging Customer App Bypass"
+  domain           = "customer.inspi.cloud"
+  type             = "self_hosted"
+  session_duration = "24h"
+}
+
+resource "cloudflare_zero_trust_access_policy" "staging_customer_app_bypass" {
+  zone_id        = local.zone_inspi_cloud
+  application_id = cloudflare_zero_trust_access_application.staging_customer_app.id
+  name           = "Bypass for customers"
+  decision       = "bypass"
+  precedence     = 1
+
+  include {
+    everyone = true
+  }
+}
+
+resource "cloudflare_zero_trust_access_application" "staging_customer_api" {
+  zone_id          = local.zone_inspi_cloud
+  name             = "Staging Customer API Bypass"
+  domain           = "customer-api.inspi.cloud"
+  type             = "self_hosted"
+  session_duration = "24h"
+}
+
+resource "cloudflare_zero_trust_access_policy" "staging_customer_api_bypass" {
+  zone_id        = local.zone_inspi_cloud
+  application_id = cloudflare_zero_trust_access_application.staging_customer_api.id
+  name           = "Bypass for customers"
+  decision       = "bypass"
+  precedence     = 1
+
+  include {
+    everyone = true
+  }
+}

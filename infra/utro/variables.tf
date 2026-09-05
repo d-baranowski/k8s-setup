@@ -50,7 +50,15 @@ variable "cluster_secret_store_name" {
 variable "firebase_authorized_domains" {
   description = "Domains allowed to complete Firebase auth flows (email-link continueUrl, OAuth redirect). Include the customer web host and localhost for dev."
   type        = list(string)
-  default     = ["localhost"]
+  # Committed rather than left to terraform.tfvars, which is gitignored: the
+  # bare ["localhost"] default authorised no deployed host at all, so an
+  # email-link or Google redirect failed everywhere and the reason lived only
+  # on whichever machine last ran apply. Same reasoning as aws_region below.
+  default = [
+    "localhost",
+    "customer.inspi.cloud",
+    "app.inspiration-particle.com",
+  ]
 }
 
 variable "enable_google_signin" {
