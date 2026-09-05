@@ -52,10 +52,11 @@ spec:
           value: "prod"
         - name: SERVICE_VERSION
           value: "0.0.1"
-        # Firebase / Identity Platform. FIREBASE_PROJECT_ID must match the project the
-        # customer ID tokens are issued for (the same project as infra/utro firebase.tf).
+        # Firebase / Identity Platform. Must be the string project ID (not the
+        # number): Firebase ID tokens carry aud=danb-ubuntu-k0s, so the numeric
+        # form fails verification.
         - name: FIREBASE_PROJECT_ID
-          value: "REPLACE_WITH_GCP_PROJECT_ID"
+          value: "danb-ubuntu-k0s"
         - name: FIREBASE_CHECK_REVOKED
           value: "true"
         - name: FIREBASE_CREDENTIALS_FILE
