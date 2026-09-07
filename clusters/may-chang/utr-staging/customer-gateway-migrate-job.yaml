@@ -1,0 +1,49 @@
+# The customer gateway owns a schema of its own: gateway.rate_limit_bucket,
+# backing the public rate limiter. Without this job the limiter logs
+# `relation "gateway.rate_limit_bucket" does not exist` on every anonymous
+# request and fails open — it allows the traffic it exists to bound, which on
+# a genuinely public host is the wrong way to fail quietly.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: utr-staging-customer-gateway-migrate
+  namespace: default
+  labels:
+    app: utr-staging-customer-gateway-migrate
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: utr-staging-customer-gateway-migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrate
+        image: ghcr.io/inspiration-particle/utro-customer-gateway:0.1.83 # {"$imagepolicy": "flux-system:utr-staging-customer-gateway"}
+        command: ["/app/customer-gateway"]
+        args: ["-migrate=true"]
+        env:
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_NAME
+          value: "utr_staging"
+        - name: DB_HOST
+          value: "pg-staging-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-migrator.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-migrator.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+              key: password

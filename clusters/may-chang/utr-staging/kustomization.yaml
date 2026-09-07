@@ -23,6 +23,7 @@ resources:
   - gateway-service.yaml
   - ui-service.yaml
   - ui-statefulset.yaml
+  - customer-gateway-migrate-job.yaml
   - customer-gateway-statefulset.yaml
   - customer-gateway-service.yaml
   - customer-ui-statefulset.yaml
