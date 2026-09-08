@@ -23,7 +23,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: migrate
-        image: ghcr.io/inspiration-particle/utro-customer-gateway:0.1.89 # {"$imagepolicy": "flux-system:utr-staging-customer-gateway"}
+        image: ghcr.io/inspiration-particle/utro-customer-gateway:0.1.90 # {"$imagepolicy": "flux-system:utr-staging-customer-gateway"}
         command: ["/app/customer-gateway"]
         args: ["-migrate=true"]
         env:
