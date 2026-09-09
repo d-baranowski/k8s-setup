@@ -23,7 +23,7 @@ spec:
         # the Turnstile site key are NEXT_PUBLIC_* and are inlined into the
         # client bundle at build time. The Jenkinsfile builds this variant from
         # the same Dockerfile with the staging hostnames.
-        image: ghcr.io/inspiration-particle/utro-customer-ui-staging:0.1.95 # {"$imagepolicy": "flux-system:utr-staging-customer-ui"}
+        image: ghcr.io/inspiration-particle/utro-customer-ui-staging:0.1.96 # {"$imagepolicy": "flux-system:utr-staging-customer-ui"}
         ports:
         - containerPort: 3000
           name: http
@@ -37,7 +37,7 @@ spec:
         - name: NEXT_TELEMETRY_DISABLED
           value: "1"
         - name: SERVICE_VERSION
-          value: "0.1.95" # {"$imagepolicy": "flux-system:utr-staging-customer-ui:tag"}
+          value: "0.1.96" # {"$imagepolicy": "flux-system:utr-staging-customer-ui:tag"}
         # TCP probes: this is a public app with no /api health route (API routes
         # are omitted so the same bundle can static-export for Capacitor).
         livenessProbe:
