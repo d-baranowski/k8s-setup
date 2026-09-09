@@ -25,7 +25,7 @@ spec:
         # created. Here Flux owns the tag: the first real one arrives with the
         # next release (tools/release/services.sh now covers this image), and
         # until then a pull failure is expected rather than a misconfiguration.
-        image: ghcr.io/inspiration-particle/utro-customer-gateway:0.1.94 # {"$imagepolicy": "flux-system:utr-staging-customer-gateway"}
+        image: ghcr.io/inspiration-particle/utro-customer-gateway:0.1.95 # {"$imagepolicy": "flux-system:utr-staging-customer-gateway"}
         ports:
         - containerPort: 9998
           name: api
@@ -45,7 +45,7 @@ spec:
         - name: SERVICE_ENV
           value: "staging"
         - name: SERVICE_VERSION
-          value: "0.1.94" # {"$imagepolicy": "flux-system:utr-staging-customer-gateway:tag"}
+          value: "0.1.95" # {"$imagepolicy": "flux-system:utr-staging-customer-gateway:tag"}
         # Bare host:port, not a URL: AddProxiedService folds the value into
         # url.URL.Host, so a scheme prefix yields an unresolvable hostname and a
         # 502 on every call. The envconfig defaults ("http://rpg.core") are dev
