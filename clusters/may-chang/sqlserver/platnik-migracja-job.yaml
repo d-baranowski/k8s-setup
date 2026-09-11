@@ -1,0 +1,319 @@
+# Grants the Płatnik logins on platnik_migracja, the transitional database
+# holding the migrated kancelaria install.
+#
+# Deliberately separate from platnik-bootstrap-job.yaml. That Job prepares the
+# *server* and owns the logins themselves; it is permanent. This one is
+# temporary: when the migration is finished and there is a single database
+# again, delete this file and its kustomization entry, and nothing else has to
+# be unpicked. Parameterising the permanent Job for a temporary database would
+# leave the transitional state baked into it long after the transition.
+#
+# It does NOT create logins or sync passwords. platnik-bootstrap owns those and
+# they are server-level, so they already apply to every database on the
+# instance. This Job only does database-level work:
+#
+#   1. AUTO_CLOSE off and RECOVERY SIMPLE
+#   2. the platnik_app role, with the same rights bootstrap grants on platnik
+#   3. each login mapped into the database, with the orphan repair below
+#   4. sqlserver_backup mapped in as db_backupoperator
+#
+# THE ORPHAN REPAIR IS THE POINT OF THIS JOB. A restored database brings its
+# own database users along, but their SIDs come from the instance it was backed
+# up from and match no login here. The user *does* exist, so a plain "does it
+# exist" guard sails straight past it: the login reaches the server and is then
+# refused the database, which reads like a password problem and is not one.
+# ALTER USER ... WITH LOGIN re-points it at the local login's SID.
+#
+# Every step checks before it acts, so this is safe to re-run at any time. If
+# the database is absent it says so and exits 0 rather than failing, so it can
+# reconcile before the restore has happened.
+#
+# To create the database in the first place:
+#   ./restore_kadis_db.sh --object <key> --target-db platnik_migracja
+#
+# NOTE: backup-cronjob.yaml does not cover this database. Until it does,
+# anything done here exists only in the restore source.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: platnik-migracja-grants
+  namespace: sqlserver
+  labels:
+    app: sqlserver
+    component: platnik-migracja
+  annotations:
+    # Job pod templates are immutable, so a plain apply fails once the script
+    # changes. Same as platnik-bootstrap: have the kustomize-controller
+    # delete-and-recreate rather than attempt an update.
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: sqlserver
+        component: platnik-migracja
+    spec:
+      restartPolicy: OnFailure
+      volumes:
+        # Only the login names are read from this; the passwords in it belong
+        # to platnik-bootstrap, which creates the logins.
+        - name: users
+          secret:
+            secretName: sqlserver-platnik-users
+      containers:
+        - name: grants
+          # tools17, pinned by digest like every other image here: mssql-tools
+          # publishes no versioned tag. Same digest as platnik-bootstrap.
+          image: mcr.microsoft.com/mssql-tools@sha256:62556500522072535cb3df2bb5965333dded9be47000473e9e0f84118e248642
+          env:
+            - name: SQL_HOST
+              value: "sqlserver"
+            - name: MIGRACJA_DB
+              value: "platnik_migracja"
+            - name: SA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sqlserver-sa-password
+                  key: password
+          volumeMounts:
+            - name: users
+              mountPath: /etc/platnik
+              readOnly: true
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              SQLCMD=/opt/mssql-tools/bin/sqlcmd
+              USERS_FILE=/etc/platnik/users
+
+              # Same helpers as platnik-bootstrap. -b: non-zero exit on SQL
+              # error. -h -1 -W: bare values, comparable in the shell. -x
+              # disables sqlcmd's $(...) substitution.
+              sa() { "$SQLCMD" -S "$SQL_HOST" -U sa -P "$SA_PASSWORD" -b -x -h -1 -W "$@"; }
+              sa_stdin() { sa -i /dev/stdin; }
+              first_line() { local o="${1//$'\r'/}"; printf '%s' "${o%%$'\n'*}"; }
+              value() { first_line "$(sa -Q "SET NOCOUNT ON; $1")"; }
+
+              echo "== 1. waiting for SQL Server on $SQL_HOST =="
+              for i in $(seq 1 60); do
+                if sa -Q "SET NOCOUNT ON; SELECT 1" >/dev/null 2>&1; then
+                  echo "   reachable after $((i-1)) retries"
+                  break
+                fi
+                echo "   not ready yet ($i/60)"
+                sleep 5
+              done
+              sa -Q "SET NOCOUNT ON; SELECT 1" >/dev/null
+
+              echo "== 2. is $MIGRACJA_DB present? =="
+              DB_PRESENT="$(value "SELECT CASE WHEN DB_ID(N'$MIGRACJA_DB') IS NULL THEN 0 ELSE 1 END")"
+              if [ "$DB_PRESENT" != "1" ]; then
+                echo "   $MIGRACJA_DB does not exist yet — nothing to grant."
+                echo "   Create it with:"
+                echo "     ./restore_kadis_db.sh --object <key> --target-db $MIGRACJA_DB"
+                echo "   then re-run this Job."
+                exit 0
+              fi
+              echo "   present"
+
+              echo "== 3. reading the login list =="
+              # Names only. The passwords in this file are platnik-bootstrap's
+              # business; these logins are server-level and already exist.
+              LOGINS=()
+              while IFS= read -r line; do
+                case "$line" in ''|\#*) continue;; esac
+                login="${line%%=*}"
+                login="$(printf '%s' "$login" | tr -d '[:space:]')"
+                [ -z "$login" ] && continue
+                if ! [[ "$login" =~ ^[A-Za-z0-9_]+$ ]]; then
+                  echo "   SKIP: '$login' is not a valid login name (letters, digits, _ only)"
+                  continue
+                fi
+                LOGINS+=("$login")
+              done < "$USERS_FILE"
+              if [ "${#LOGINS[@]}" -eq 0 ]; then
+                echo "   FAIL: no usable entries in $USERS_FILE"
+                exit 1
+              fi
+              echo "   ${#LOGINS[@]} login(s): ${LOGINS[*]}"
+
+              echo "== 4. database settings =="
+              sa_stdin <<SQL
+              SET NOCOUNT ON;
+              IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'$MIGRACJA_DB' AND is_auto_close_on = 1)
+              BEGIN
+                  PRINT '   applying: AUTO_CLOSE OFF (avoids a warm-up stall on every connect)';
+                  ALTER DATABASE [$MIGRACJA_DB] SET AUTO_CLOSE OFF;
+              END
+              ELSE PRINT '   AUTO_CLOSE already off';
+              IF EXISTS (SELECT 1 FROM sys.databases
+                         WHERE name = N'$MIGRACJA_DB' AND recovery_model_desc <> N'SIMPLE')
+              BEGIN
+                  PRINT '   applying: RECOVERY SIMPLE (no log backups are taken, so FULL would grow forever)';
+                  ALTER DATABASE [$MIGRACJA_DB] SET RECOVERY SIMPLE;
+              END
+              ELSE PRINT '   recovery model already SIMPLE';
+              SQL
+
+              echo "== 5. the platnik_app role =="
+              # Identical rights to the role bootstrap builds on platnik. The
+              # DDL grants are not optional: Płatnik runs a schema-patch pass on
+              # every connect and a denied ALTER surfaces as "object does not
+              # exist or you do not have permission", which blocks the
+              # connection wizard entirely.
+              sa_stdin <<SQL
+              SET NOCOUNT ON;
+              USE [$MIGRACJA_DB];
+
+              IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'platnik_app' AND type = 'R')
+              BEGIN
+                  PRINT '   creating role platnik_app';
+                  CREATE ROLE [platnik_app];
+              END
+              ELSE PRINT '   role platnik_app already exists';
+
+              IF NOT EXISTS (SELECT 1 FROM sys.database_role_members m
+                             JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+                             JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+                             WHERE r.name = N'db_datareader' AND u.name = N'platnik_app')
+                  ALTER ROLE db_datareader ADD MEMBER [platnik_app];
+              IF NOT EXISTS (SELECT 1 FROM sys.database_role_members m
+                             JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+                             JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+                             WHERE r.name = N'db_datawriter' AND u.name = N'platnik_app')
+                  ALTER ROLE db_datawriter ADD MEMBER [platnik_app];
+
+              GRANT ALTER, REFERENCES, EXECUTE ON SCHEMA::dbo TO [platnik_app];
+              GRANT CREATE TABLE, CREATE VIEW, CREATE PROCEDURE TO [platnik_app];
+              PRINT '   granted: read/write, ALTER/REFERENCES/EXECUTE on dbo, CREATE TABLE/VIEW/PROCEDURE';
+              SQL
+
+              echo "== 6. mapping the logins in =="
+              for l in "${LOGINS[@]}"; do
+                sa_stdin <<SQL
+              SET NOCOUNT ON;
+              USE [$MIGRACJA_DB];
+              IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'$l')
+                  PRINT '   $l: no such login — run platnik-bootstrap first, skipping';
+              ELSE
+              BEGIN
+                  IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'$l')
+                  BEGIN
+                      PRINT '   $l: mapping into the database';
+                      CREATE USER [$l] FOR LOGIN [$l];
+                  END
+                  -- The orphan repair. See the header: the user arrives from
+                  -- the restore with a SID from the source instance, so it
+                  -- exists but resolves to nothing here. No-op once matched.
+                  IF EXISTS (SELECT 1 FROM sys.database_principals dp
+                             WHERE dp.name = N'$l' AND dp.type = 'S'
+                               AND NOT EXISTS (SELECT 1 FROM sys.server_principals sp
+                                               WHERE sp.sid = dp.sid))
+                  BEGIN
+                      PRINT '   $l: orphaned after the restore, re-linking to the login';
+                      ALTER USER [$l] WITH LOGIN = [$l];
+                  END
+                  IF NOT EXISTS (SELECT 1 FROM sys.database_role_members m
+                                 JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+                                 JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+                                 WHERE r.name = N'platnik_app' AND u.name = N'$l')
+                  BEGIN
+                      PRINT '   $l: adding to platnik_app';
+                      ALTER ROLE [platnik_app] ADD MEMBER [$l];
+                  END
+                  -- Same rule as on platnik: no application login keeps
+                  -- db_owner. A restored database is quite likely to arrive
+                  -- with one, since that is how Płatnik's wizard leaves it.
+                  IF EXISTS (SELECT 1 FROM sys.database_role_members m
+                             JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+                             JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+                             WHERE r.name = N'db_owner' AND u.name = N'$l')
+                  BEGIN
+                      PRINT '   $l: removing db_owner';
+                      ALTER ROLE db_owner DROP MEMBER [$l];
+                  END
+              END
+              SQL
+              done
+
+              echo "== 7. the backup login =="
+              # db_backupoperator and nothing else — backing the database up and
+              # using it are separate jobs with separate blast radius. The login
+              # itself belongs to platnik-bootstrap.
+              sa_stdin <<SQL
+              SET NOCOUNT ON;
+              USE [$MIGRACJA_DB];
+              IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'sqlserver_backup')
+                  PRINT '   sqlserver_backup: no such login — run platnik-bootstrap first, skipping';
+              ELSE
+              BEGIN
+                  IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'sqlserver_backup')
+                  BEGIN
+                      PRINT '   sqlserver_backup: mapping into the database';
+                      CREATE USER [sqlserver_backup] FOR LOGIN [sqlserver_backup];
+                  END
+                  IF EXISTS (SELECT 1 FROM sys.database_principals dp
+                             WHERE dp.name = N'sqlserver_backup' AND dp.type = 'S'
+                               AND NOT EXISTS (SELECT 1 FROM sys.server_principals sp
+                                               WHERE sp.sid = dp.sid))
+                  BEGIN
+                      PRINT '   sqlserver_backup: orphaned after the restore, re-linking to the login';
+                      ALTER USER [sqlserver_backup] WITH LOGIN = [sqlserver_backup];
+                  END
+                  IF NOT EXISTS (SELECT 1 FROM sys.database_role_members m
+                                 JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+                                 JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+                                 WHERE r.name = N'db_backupoperator' AND u.name = N'sqlserver_backup')
+                  BEGIN
+                      PRINT '   sqlserver_backup: adding to db_backupoperator';
+                      ALTER ROLE db_backupoperator ADD MEMBER [sqlserver_backup];
+                  END
+                  ELSE PRINT '   sqlserver_backup: already db_backupoperator';
+              END
+              SQL
+
+              echo ""
+              echo "== summary =="
+              sa -Q "$(cat <<SQL
+              SET NOCOUNT ON;
+              SELECT 'database    : $MIGRACJA_DB';
+              SELECT 'recovery    : ' + recovery_model_desc FROM sys.databases WHERE name = N'$MIGRACJA_DB';
+              SELECT 'tables      : ' + CONVERT(varchar(10), COUNT(*)) FROM [$MIGRACJA_DB].sys.tables;
+              EXEC('SELECT ''platnik_app : '' + STRING_AGG(u.name, '', '')
+                    FROM [$MIGRACJA_DB].sys.database_role_members m
+                    JOIN [$MIGRACJA_DB].sys.database_principals r ON r.principal_id = m.role_principal_id
+                    JOIN [$MIGRACJA_DB].sys.database_principals u ON u.principal_id = m.member_principal_id
+                    WHERE r.name = N''platnik_app''');
+              SQL
+              )"
+              # Report, never act: auto-dropping principals from a Job that runs
+              # on every reconcile is a good way to lose access at the worst
+              # moment. An orphan here means the repair above did not take.
+              sa -Q "$(cat <<SQL
+              SET NOCOUNT ON;
+              USE [$MIGRACJA_DB];
+              SELECT '   WARNING: still orphaned: ' + dp.name
+              FROM sys.database_principals dp
+              WHERE dp.type = 'S' AND dp.principal_id > 4
+                AND NOT EXISTS (SELECT 1 FROM sys.server_principals sp WHERE sp.sid = dp.sid);
+              SELECT '   WARNING: db_owner still held by: ' + u.name
+              FROM sys.database_role_members m
+              JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
+              JOIN sys.database_principals u ON u.principal_id = m.member_principal_id
+              WHERE r.name = N'db_owner' AND u.name <> N'dbo';
+              SELECT '   WARNING: table outside dbo: ' + s.name + '.' + t.name
+              FROM sys.tables t JOIN sys.schemas s ON s.schema_id = t.schema_id
+              WHERE s.name <> 'dbo';
+              SQL
+              )"
+              echo ""
+              echo "$MIGRACJA_DB is ready."
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
