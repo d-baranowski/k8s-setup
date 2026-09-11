@@ -1,0 +1,31 @@
+# The JWT keypair passbolt signs API tokens with, and nothing else.
+#
+# `cake passbolt create_jwt_keys` generates it on first boot. Losing it logs out
+# every mobile and desktop client — they hold refresh tokens signed by it — while
+# browser extensions, which authenticate over GPGAuth, are unaffected. So this
+# volume is worth keeping and cheap to lose.
+#
+# Notably NOT here:
+#   - the server GPG key, which is mounted from Secret Manager instead. See
+#     gpg-server-key-secret.yaml; that is what makes this volume replaceable.
+#   - avatars. Passbolt stored them under webroot/img/public until 3.2 and has
+#     kept them in the `avatars` database table ever since, so there is no
+#     user-uploaded file on disk to preserve any more.
+#
+# local-path is node-local: the PV takes a hard nodeAffinity on whichever node
+# first schedules the pod, and the pod cannot move afterwards without the data
+# being copied across by hand.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: passbolt-data
+  namespace: passbolt
+  labels:
+    app: passbolt
+    component: pvc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi

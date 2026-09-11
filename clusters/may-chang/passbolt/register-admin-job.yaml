@@ -1,0 +1,196 @@
+# Registers the first administrator, idempotently.
+#
+# Passbolt has no first-run wizard and no default account: a fresh install has
+# an empty users table and no way in through the browser. The account has to be
+# created from the CLI, which upstream documents as a `docker compose exec` you
+# run by hand. That is committed here instead, so a rebuilt cluster reaches the
+# same place with no one remembering the command.
+#
+# Re-running is safe and does nothing: a second registration of the same address
+# fails the uniqueUsername rule, which this treats as success. That is what
+# makes it survivable under Flux, which will re-apply this Job whenever the
+# script changes.
+#
+# The setup link is in this Job's log — there is no other copy, and it is the
+# only way to claim the account:
+#
+#   kubectl -n passbolt logs job/passbolt-register-admin
+#
+# Clicking it is what generates the user's OpenPGP key in the browser extension.
+# If the link is lost or expires, issue a fresh one with:
+#
+#   kubectl -n passbolt exec deploy/passbolt -- su -m -s /bin/bash www-data \
+#     -c "/usr/share/php/passbolt/bin/cake passbolt recover_user -u EMAIL"
+#
+# To add other people later, invite them from the UI, or run the same cake
+# command as this Job with -r user.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: passbolt-register-admin
+  namespace: passbolt
+  labels:
+    app: passbolt
+    component: register-admin
+  annotations:
+    # Job pod templates are immutable, so a plain apply fails once the script
+    # below changes. Same trick as sqlserver/platnik-bootstrap-job.yaml: have
+    # the kustomize-controller delete and recreate the Job instead.
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  # A week, not the usual day: this Job's log holds the only copy of the setup
+  # URL, and the whole point of it is to be there when someone gets round to
+  # claiming the account.
+  ttlSecondsAfterFinished: 604800
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: passbolt
+        component: register-admin
+    spec:
+      restartPolicy: OnFailure
+      volumes:
+        # Same server key the Deployment mounts. It is a Secret, not the RWO
+        # PVC, so mounting it in a second pod costs nothing.
+        - name: gpg
+          secret:
+            secretName: passbolt-gpg-server-key
+            defaultMode: 0440
+      containers:
+        - name: register
+          # Identical to the Deployment's image, digest included: this runs
+          # passbolt's own code against passbolt's own database, and a version
+          # skew between the two is the one thing that could make it write
+          # something the running server does not expect.
+          image: passbolt/passbolt:5.15.0-1-ce@sha256:e16ff8720fd721861435518e0a8926f2d41895cca335ba5cd5ba168ae41ae9a9
+          envFrom:
+            - configMapRef:
+                name: passbolt-config
+          env:
+            # The administrator to create. Add people by inviting them from the
+            # UI rather than by editing this — a Job is a clumsy user directory.
+            - name: ADMIN_EMAIL
+              value: "daniel.m.baranowski@gmail.com"
+            - name: ADMIN_FIRST_NAME
+              value: "Daniel"
+            - name: ADMIN_LAST_NAME
+              value: "Baranowski"
+            - name: DATASOURCES_DEFAULT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: passbolt.passbolt-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+                  key: username
+            - name: DATASOURCES_DEFAULT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: passbolt.passbolt-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+                  key: password
+            - name: SECURITY_SALT
+              valueFrom:
+                secretKeyRef:
+                  name: passbolt-security-salt
+                  key: salt
+            - name: EMAIL_TRANSPORT_DEFAULT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: passbolt-smtp
+                  key: password
+          volumeMounts:
+            - name: gpg
+              mountPath: /etc/passbolt/gpg
+              readOnly: true
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              CAKE=/usr/share/php/passbolt/bin/cake
+              STATUS_URL="http://passbolt.passbolt.svc.cluster.local/healthcheck/status.json"
+
+              # Everything below runs as www-data rather than root. Not a
+              # precaution: passbolt's CLI refuses to run as root outright
+              # (assertCurrentProcessUser), and the check is on the real
+              # process owner, so `su` is the only way past it.
+              as_www() { su -m -s /bin/bash www-data -c "$1"; }
+
+              # This container starts from the image's CMD, not from
+              # /docker-entrypoint.sh, so the two pieces of setup the entrypoint
+              # would have done have to happen here — otherwise the CLI reads a
+              # different configuration than the server does.
+              #
+              # 1. app.php. The package ships only app.default.php; CakePHP
+              #    loads the copy, and without it the command dies during
+              #    bootstrap.
+              echo "== preparing configuration =="
+              if [ ! -f /etc/passbolt/app.php ]; then
+                as_www "cp /etc/passbolt/app.default.php /etc/passbolt/app.php"
+                echo "   app.php created from app.default.php"
+              else
+                echo "   app.php already present"
+              fi
+
+              # 2. The server key, imported into the keyring and its fingerprint
+              #    exported. register_user does not sign anything, but passbolt
+              #    validates this configuration while bootstrapping and an
+              #    unset fingerprint is not worth gambling a failed Job on.
+              echo "== importing the server key =="
+              as_www "gpg --homedir \"$GNUPGHOME\" --batch --import /etc/passbolt/gpg/serverkey.asc /etc/passbolt/gpg/serverkey_private.asc"
+              PASSBOLT_GPG_SERVER_KEY_FINGERPRINT="$(as_www "gpg --homedir \"$GNUPGHOME\" --list-keys --with-colons \"$PASSBOLT_KEY_EMAIL\"" | awk -F: '/^fpr/{print $10; exit}')"
+              export PASSBOLT_GPG_SERVER_KEY_FINGERPRINT
+              if [ -z "$PASSBOLT_GPG_SERVER_KEY_FINGERPRINT" ]; then
+                echo "   FAIL: no key in the keyring for $PASSBOLT_KEY_EMAIL."
+                echo "   The UID email of the keypair in Secret Manager and"
+                echo "   PASSBOLT_KEY_EMAIL in configmap.yaml have to match."
+                exit 1
+              fi
+              echo "   $PASSBOLT_GPG_SERVER_KEY_FINGERPRINT"
+
+              # Wait for the server rather than for Postgres. Only the
+              # Deployment's entrypoint runs the migrations, and it starts nginx
+              # afterwards — so an answer here is proof the schema exists, which
+              # a TCP check against Postgres would not be.
+              echo "== waiting for passbolt to answer =="
+              for i in $(seq 1 60); do
+                if curl -fsS --max-time 5 "$STATUS_URL" >/dev/null 2>&1; then
+                  echo "   up after $((i-1)) retries"
+                  break
+                fi
+                echo "   not ready yet ($i/60)"
+                sleep 10
+              done
+              curl -fsS --max-time 5 "$STATUS_URL" >/dev/null
+
+              echo "== registering $ADMIN_EMAIL as admin =="
+              # Retried, because "up" and "able to write a user" are not quite
+              # the same instant on a database that has just been migrated.
+              for attempt in $(seq 1 10); do
+                if OUT="$(as_www "$CAKE passbolt register_user -u \"$ADMIN_EMAIL\" -f \"$ADMIN_FIRST_NAME\" -l \"$ADMIN_LAST_NAME\" -r admin" 2>&1)"; then
+                  echo "$OUT"
+                  echo ""
+                  echo "== done. The setup URL above is the only way to claim this"
+                  echo "   account, and it is also in the invitation email."
+                  exit 0
+                fi
+                echo "$OUT"
+                # The idempotent case: the account is already there, from an
+                # earlier run of this Job or from the UI. Nothing to do, and
+                # nothing that should keep the Kustomization red.
+                if grep -qi 'already in use' <<<"$OUT"; then
+                  echo ""
+                  echo "== $ADMIN_EMAIL is already registered, nothing to do."
+                  echo "   For a fresh setup link: cake passbolt recover_user -u $ADMIN_EMAIL"
+                  exit 0
+                fi
+                echo "   attempt $attempt/10 failed, retrying in 10s"
+                sleep 10
+              done
+
+              echo "FAIL: could not register $ADMIN_EMAIL — see the errors above."
+              exit 1
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

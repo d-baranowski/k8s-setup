@@ -1,0 +1,80 @@
+# Non-secret environment for passbolt. Names come straight from
+# config/app.default.php and config/passbolt.default.php upstream — passbolt
+# reads its whole configuration from the environment, so there is no config file
+# to template here.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: passbolt-config
+  namespace: passbolt
+  labels:
+    app: passbolt
+    component: configmap
+data:
+  # Every URL passbolt emits is built from this: the setup and recovery links in
+  # emails, the redirect after login, and the origin the browser extension pins
+  # the server to. It must be the MagicDNS name the Tailscale Ingress serves and
+  # nothing else — a mismatch does not fail loudly, it sends people setup links
+  # that point somewhere unreachable.
+  APP_FULL_BASE_URL: "https://passbolt.folk-saiph.ts.net"
+
+  # --- database -----------------------------------------------------------
+  # pg-op-cluster, the same Postgres that carries utro, n8n and mattermost, so
+  # the vault lands inside the WAL-to-S3 and nightly logical backups that
+  # cluster already has (pg-operator/helm-release.yaml). MariaDB is passbolt's
+  # default and Postgres its documented alternative — the choice is one-way:
+  # upstream is explicit that you must not point an existing installation at a
+  # different engine afterwards.
+  #
+  # The role, database and pg_hba lines are declared in
+  # pg-operator/cluster.yaml. The username is `passbolt.passbolt_user`, dot
+  # included: with enable_cross_namespace_secret the namespace prefix becomes
+  # part of the Postgres role name, which is the price of having the operator
+  # drop the credentials secret in *this* namespace instead of `default`.
+  # Username and password are read from that secret in deployment.yaml.
+  DATASOURCES_DEFAULT_DRIVER: 'Cake\Database\Driver\Postgres'
+  DATASOURCES_DEFAULT_HOST: "pg-op-cluster.default.svc.cluster.local"
+  DATASOURCES_DEFAULT_PORT: "5432"
+  DATASOURCES_DEFAULT_DATABASE: "passbolt"
+  # utf8 for Postgres, not the utf8mb4 the default assumes — that spelling is
+  # MySQL's and Postgres rejects it as an unknown client encoding.
+  DATASOURCES_DEFAULT_ENCODING: "utf8"
+  # Left at the default `public` on purpose. Upstream's compose example uses a
+  # dedicated `passbolt` schema, but the Zalando operator creates the database
+  # with this role as its owner and nothing else lives in it, so a second schema
+  # would buy no isolation and would have to be created by hand first.
+  DATASOURCES_DEFAULT_SCHEMA: "public"
+
+  # --- server key ---------------------------------------------------------
+  # Must match the UID email of the keypair in gpg-server-key-secret.yaml. The
+  # entrypoint resolves the server key fingerprint by looking this address up in
+  # the keyring it just imported. If you would rather pin the fingerprint
+  # outright, set PASSBOLT_GPG_SERVER_KEY_FINGERPRINT here (40 hex chars, no
+  # spaces) and this lookup is skipped.
+  PASSBOLT_KEY_EMAIL: "passbolt@inspiration-particle.com"
+
+  # --- email --------------------------------------------------------------
+  # Resend's SMTP gateway, with the API key as the password (smtp-secret.yaml).
+  # The from address has to be on a domain verified in Resend —
+  # inspiration-particle.com is, because utro's notification service already
+  # sends from it.
+  EMAIL_DEFAULT_FROM: "passbolt@inspiration-particle.com"
+  EMAIL_DEFAULT_FROM_NAME: "Passbolt"
+  EMAIL_TRANSPORT_DEFAULT_HOST: "smtp.resend.com"
+  EMAIL_TRANSPORT_DEFAULT_PORT: "587"
+  EMAIL_TRANSPORT_DEFAULT_USERNAME: "resend"
+  # STARTTLS on 587. Without this CakePHP sends the credentials in the clear and
+  # Resend closes the connection.
+  EMAIL_TRANSPORT_DEFAULT_TLS: "true"
+
+  # Passbolt does not send mail from the request that queues it: rows go into
+  # email_queue and a cron inside the container drains them every minute. So a
+  # broken SMTP config shows up as a growing queue and errors in the pod log,
+  # never as a failed page.
+
+  # --- exposure -----------------------------------------------------------
+  # Self-registration stays off. It is the default, but it is worth being
+  # explicit about on a service whose whole security model is "only people the
+  # admin invited have an account here". New users are invited from the UI, or
+  # with the same cake command register-admin-job.yaml runs.
+  PASSBOLT_REGISTRATION_PUBLIC: "false"

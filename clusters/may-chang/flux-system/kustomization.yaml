@@ -22,3 +22,4 @@ resources:
 - coredns-kustomization.yaml
 - sqlserver-kustomization.yaml
 - open-seo-kustomization.yaml
+- passbolt-kustomization.yaml
