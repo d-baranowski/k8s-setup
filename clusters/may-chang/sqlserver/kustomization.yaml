@@ -10,5 +10,8 @@ resources:
   - statefulset.yaml
   - service.yaml
   - platnik-bootstrap-job.yaml
+  # Temporary, for the duration of the migration. Delete this line and the
+  # file together once there is a single database again.
+  - platnik-migracja-job.yaml
   - backup-cronjob.yaml
   - alerts.yaml
