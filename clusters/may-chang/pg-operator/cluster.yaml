@@ -29,6 +29,7 @@ spec:
       - "local   all             n8n_user                                md5"
       - "local   all             mattermost_user                         md5"
       - "local   all             core_event                              md5"
+      - "local   all             passbolt.passbolt_user                  md5"
 
       # ANY host, no-SSL explicitly allowed (matches: no encryption)
       - "hostnossl all           postgres         0.0.0.0/0              md5"
@@ -36,11 +37,13 @@ spec:
       - "hostnossl all           n8n_user         0.0.0.0/0              md5"
       - "hostnossl all           mattermost_user  0.0.0.0/0              md5"
       - "hostnossl all           core_event       0.0.0.0/0              md5"
+      - "hostnossl all           passbolt.passbolt_user 0.0.0.0/0        md5"
       - "hostnossl all           postgres         ::/0                   md5"
       - "hostnossl all           utro_user        ::/0                   md5"
       - "hostnossl all           n8n_user         ::/0                   md5"
       - "hostnossl all           mattermost_user  ::/0                   md5"
       - "hostnossl all           core_event       ::/0                   md5"
+      - "hostnossl all           passbolt.passbolt_user ::/0             md5"
 
       # ANY host, SSL also allowed
       - "hostssl all            postgres         0.0.0.0/0              md5"
@@ -48,11 +51,13 @@ spec:
       - "hostssl all            n8n_user         0.0.0.0/0              md5"
       - "hostssl all            mattermost_user  0.0.0.0/0              md5"
       - "hostssl all            core_event       0.0.0.0/0              md5"
+      - "hostssl all            passbolt.passbolt_user 0.0.0.0/0        md5"
       - "hostssl all            postgres         ::/0                   md5"
       - "hostssl all            utro_user        ::/0                   md5"
       - "hostssl all            n8n_user         ::/0                   md5"
       - "hostssl all            mattermost_user  ::/0                   md5"
       - "hostssl all            core_event       ::/0                   md5"
+      - "hostssl all            passbolt.passbolt_user ::/0             md5"
 
   env:
     - name: WAL_S3_BUCKET
@@ -85,8 +90,19 @@ spec:
     # migration), so no bootstrap service is needed in prod. → creates secret
     # core-event.pg-op-cluster.credentials.postgresql.acid.zalan.do
     core_event: [LOGIN, REPLICATION, BYPASSRLS]
+    # Passbolt, which runs in its own namespace rather than in `default` like
+    # the other tenants here. The `passbolt.` prefix is the operator's
+    # cross-namespace notation (enable_cross_namespace_secret, already on in
+    # helm-release.yaml): it puts the generated credentials secret in the
+    # `passbolt` namespace, at the price of the prefix becoming part of the
+    # Postgres role name. No flags — passbolt owns its database and creates
+    # nothing outside it.
+    passbolt.passbolt_user: []
 
   databases:
     n8n: n8n_user
     utro: utro_user
     mattermost: mattermost_user
+    # Owned by the role above, so passbolt can run its own migrations. The
+    # namespace prefix is part of the role name here too.
+    passbolt: passbolt.passbolt_user

@@ -1,0 +1,89 @@
+# Alerts for passbolt.
+#
+# Prometheus discovers PrometheusRules in every namespace
+# (ruleSelectorNilUsesHelmValues: false plus an empty ruleNamespaceSelector in
+# observability/helmrelease-kube-prometheus-stack.yaml), so these live next to
+# the workload they describe — same reasoning as open-seo/alerts.yaml.
+#
+# Passbolt exposes no Prometheus metrics of its own, so everything below is
+# built from what the platform collects for any pod: kube-state-metrics and the
+# kubelet. Nothing here can tell you whether the email queue is draining or
+# whether logins are succeeding — only that the process is alive and fed.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: passbolt-alerts
+  namespace: passbolt
+  labels:
+    app: passbolt
+    component: alerts
+spec:
+  groups:
+    - name: passbolt
+      rules:
+        - alert: PassboltDown
+          expr: >-
+            kube_deployment_status_replicas_available{namespace="passbolt", deployment="passbolt"} < 1
+            and kube_deployment_spec_replicas{namespace="passbolt", deployment="passbolt"} > 0
+          for: 10m
+          labels:
+            severity: critical
+            service: passbolt
+          annotations:
+            summary: "Passbolt has no available replica"
+            description: >-
+              Nothing is serving passbolt.folk-saiph.ts.net, so nobody can reach
+              their passwords. The usual cause is the database: the container
+              waits for pg-op-cluster before it starts, and runs its migrations
+              before nginx comes up. Check `kubectl -n passbolt logs
+              deploy/passbolt`, then the cluster in `default`.
+            # Critical rather than warning, unlike the other single-replica
+            # services here: when this is down the one thing people need in
+            # order to log into anything else is unavailable.
+
+        - alert: PassboltRestartLoop
+          expr: increase(kube_pod_container_status_restarts_total{namespace="passbolt", container="passbolt"}[1h]) > 3
+          for: 10m
+          labels:
+            severity: warning
+            service: passbolt
+          annotations:
+            summary: "Passbolt restarted {{ $value | humanize }} times in the last hour"
+            description: >-
+              Every restart re-imports the GPG key and re-runs `passbolt
+              migrate`, so a loop is more than a cosmetic annoyance. Check
+              `kubectl -n passbolt describe pod -l app=passbolt` for the exit
+              reason.
+
+        - alert: PassboltVolumeLow
+          expr: >-
+            kubelet_volume_stats_available_bytes{namespace="passbolt", persistentvolumeclaim="passbolt-data"}
+            / kubelet_volume_stats_capacity_bytes{namespace="passbolt", persistentvolumeclaim="passbolt-data"}
+            < 0.15
+          for: 30m
+          labels:
+            severity: warning
+            service: passbolt
+          annotations:
+            summary: "Passbolt data volume below 15% free"
+            description: >-
+              {{ $value | humanizePercentage }} free on the volume holding the
+              JWT keypair. local-path reports the node filesystem rather than the
+              1Gi request, so this is really about free space on the node the
+              volume bound to — passbolt itself writes almost nothing here.
+
+        # The register-admin Job is written to succeed when the account already
+        # exists, so a failure here is a real failure — a wrong server key
+        # email, or a database it could not write to.
+        - alert: PassboltJobFailed
+          expr: kube_job_failed{namespace="passbolt"} > 0
+          for: 15m
+          labels:
+            severity: warning
+            service: passbolt
+          annotations:
+            summary: "A passbolt Job has failed"
+            description: >-
+              `kubectl -n passbolt get jobs` to see which, then its logs. If it
+              is passbolt-register-admin, no administrator account was created
+              and nobody can log in yet.
