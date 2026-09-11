@@ -117,10 +117,21 @@ spec:
           env:
             - name: SQL_HOST
               value: "sqlserver"
-            # The database Płatnik's wizard creates. This Job never creates it
-            # — it only grants the rights it needs once it exists.
-            - name: PLATNIK_DB
-              value: "platnik"
+            # The databases Płatnik's wizard creates, space separated. This
+            # Job never creates one — it only grants the rights each needs once
+            # it exists, and skips with a note any that is absent.
+            #
+            # platnik_migracja is the 2026 migration of the kancelaria's
+            # existing install (9 płatnicy, 483 ubezpieczonych, documents back
+            # to 1999), restored from
+            #   s3://kadis-ad77fef6-backups/sqlserver/migracja/DSKARLA_MIGRACJA.bak.gz
+            # via restore_kadis_db.sh. It is listed here so it gets exactly the
+            # same logins and platnik_app rights as platnik — a restored
+            # database brings its own users along, with SIDs from the old
+            # SERWER1 instance that match nothing here, so without this Job's
+            # orphan repair nobody could log into it at all.
+            - name: PLATNIK_DBS
+              value: "platnik platnik_migracja"
             # The shared `platnik` login that predated this Job is gone: both
             # people are on named logins, so it was dropped on 2026-09-04 along
             # with its database user. Nothing here recreates it.
@@ -253,6 +264,7 @@ spec:
               SQL
               done
 
+              for PLATNIK_DB in $PLATNIK_DBS; do
               echo "== 6. rights on the $PLATNIK_DB database =="
               DB_PRESENT="$(value "SELECT CASE WHEN DB_ID(N'$PLATNIK_DB') IS NULL THEN 0 ELSE 1 END")"
               if [ "$DB_PRESENT" != "1" ]; then
@@ -439,6 +451,7 @@ spec:
               WHERE s.name <> 'dbo';
               SQL
               fi
+              done
 
               FIRST="${LOGINS[0]}"
               echo "== 7. verifying as $FIRST =="
@@ -456,17 +469,27 @@ spec:
                   (SELECT CONVERT(int, value_in_use) FROM sys.configurations WHERE name = 'default language');
               SELECT 'logins           : ' + STRING_AGG(name, ', ') FROM sys.server_principals
                   WHERE type = 'S' AND name NOT LIKE '##%' AND name <> 'sa';
-              IF DB_ID(N'$PLATNIK_DB') IS NOT NULL
-                  SELECT 'recovery model   : ' + recovery_model_desc
+              SQL
+              )"
+              # Per database, so a summary covering several stays readable.
+              for PLATNIK_DB in $PLATNIK_DBS; do
+                sa -Q "$(cat <<SQL
+              SET NOCOUNT ON;
+              IF DB_ID(N'$PLATNIK_DB') IS NULL
+                  SELECT '$PLATNIK_DB: absent';
+              ELSE
+              BEGIN
+                  SELECT '$PLATNIK_DB: recovery ' + recovery_model_desc
                   FROM sys.databases WHERE name = N'$PLATNIK_DB';
-              IF DB_ID(N'$PLATNIK_DB') IS NOT NULL
-                  EXEC('SELECT ''platnik_app      : '' + STRING_AGG(u.name, '', '')
+                  EXEC('SELECT ''$PLATNIK_DB: platnik_app = '' + STRING_AGG(u.name, '', '')
                         FROM [$PLATNIK_DB].sys.database_role_members m
                         JOIN [$PLATNIK_DB].sys.database_principals r ON r.principal_id = m.role_principal_id
                         JOIN [$PLATNIK_DB].sys.database_principals u ON u.principal_id = m.member_principal_id
                         WHERE r.name = N''platnik_app''');
+              END
               SQL
               )"
+              done
               echo ""
               echo "Server is ready."
           resources:
