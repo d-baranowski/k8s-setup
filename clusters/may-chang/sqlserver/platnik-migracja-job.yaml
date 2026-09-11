@@ -28,8 +28,21 @@
 # the database is absent it says so and exits 0 rather than failing, so it can
 # reconcile before the restore has happened.
 #
-# To create the database in the first place:
-#   ./restore_kadis_db.sh --object <key> --target-db platnik_migracja
+# To create the database in the first place — restore_kadis_db.sh needs no
+# changes for this, restoring into a NEW database is already its default:
+#
+#   ./restore_kadis_db.sh \
+#     --object sqlserver/migracja/DSKARLA_MIGRACJA.bak.gz \
+#     --target-db platnik_migracja
+#
+# Expect 128 tables and WersjaBazy 1002016 in its proof step. Then run this Job
+# (or let Flux reconcile it) to grant the rights.
+#
+# That object is the migrated install's own SQL Server 2019 backup. It sits
+# under sqlserver/migracja/ rather than sqlserver/platnik/ on purpose: the
+# bucket's 14-day expiry rule is scoped to the platnik prefix (infra/kadis,
+# backups.tf), so objects under migracja/ are not expired. The pre-migration
+# backup of the live database is kept beside it for the same reason.
 #
 # NOTE: backup-cronjob.yaml does not cover this database. Until it does,
 # anything done here exists only in the restore source.
