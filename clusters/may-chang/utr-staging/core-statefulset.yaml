@@ -29,6 +29,10 @@ spec:
           value: "Europe/Warsaw"
         - name: PAYMENT_SERVICE_URL
           value: "http://utr-staging-payment.default.svc.cluster.local:9102"
+        # Never set here, so core has been running on the compose default
+        # http://rpg.assets and has not been able to reach assets at all.
+        - name: ASSETS_SERVICE_URL
+          value: "http://utr-staging-assets.default.svc.cluster.local:9003"
         - name: PAYMENT_SERVICE_CLIENT_TIMEOUT_MS
           value: "10000"
         - name: HEALTH_PORT
