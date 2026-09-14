@@ -57,6 +57,19 @@ spec:
           value: "pg-staging-cluster.default.svc.cluster.local"
         - name: DB_PORT
           value: "5432"
+        # Every one of these has a dev default that resolves to nothing here.
+        # CORE_SERVICE_URL defaults to "http://rpg.core" — the docker-compose
+        # hostname — so without it the service cannot reach core at all: every
+        # RPC fails with "lookup rpg.core ... no such host", which silently
+        # broke all subscription-addressed notifications (the practice was
+        # never told when somebody joined the waiting list). The app URLs
+        # default to localhost and end up as dead links in sent mail.
+        - name: CORE_SERVICE_URL
+          value: "http://utr-staging-core.default.svc.cluster.local:9102"
+        - name: ADMIN_APP_URL
+          value: "https://utro-test.inspi.cloud"
+        - name: CUSTOMER_APP_URL
+          value: "https://customer.inspi.cloud"
         - name: EMAIL_FROM_ADDRESS
           value: "kontakt@inspiration-particle.com"
         - name: EMAIL_API_KEY
