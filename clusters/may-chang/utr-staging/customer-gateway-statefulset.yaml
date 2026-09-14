@@ -57,6 +57,10 @@ spec:
         # which would fail validation at startup on the current image.
         - name: NOTIFICATION_SERVICE
           value: "utr-staging-notification.default.svc.cluster.local:9002"
+        # Carries assets.public.v1, the anonymous read behind responsive
+        # images. Unset it defaulted to http://rpg.assets and resolved nowhere.
+        - name: ASSETS_SERVICE
+          value: "utr-staging-assets.default.svc.cluster.local:9003"
         - name: WITH_PERMISSIONS
           value: "true"
         - name: ENABLE_PERMISSIONS

@@ -39,6 +39,10 @@ spec:
           value: "http://utr-staging-core.default.svc.cluster.local:9102"
         - name: NOTIFICATION_API_URL
           value: "http://utr-staging-notification.default.svc.cluster.local:9002"
+        # Unset meant http://localhost:9003, which is why the therapist-photo
+        # step has quietly done nothing here.
+        - name: ASSETS_SERVICE_URL
+          value: "http://utr-staging-assets.default.svc.cluster.local:9003"
         - name: SERVICE_VERSION
           value: "0.1.105" # {"$imagepolicy": "flux-system:utr-staging-bootstrap:tag"}
         - name: SERVICE_NAME
