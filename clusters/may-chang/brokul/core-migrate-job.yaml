@@ -1,0 +1,78 @@
+# Migrations, as a one-shot Job on the same image as the service.
+#
+# main() reads MIGRATE, runs goose over app/core/db/*.sql and exits — no API
+# server starts. Goose takes a per-database advisory lock, so this racing a
+# rolling restart is safe.
+#
+# THE FORCE ANNOTATION IS REQUIRED. A Job's pod template is immutable, so when
+# the image tag changes a plain apply fails; this tells the kustomize-controller
+# to delete and recreate instead. Without it the Job silently stays on the old
+# image while the StatefulSets move to the new one, which is how a deploy ends up
+# running new code against an un-migrated schema.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: brokul-core-migrate
+  namespace: brokul
+  labels:
+    app: brokul-core-migrate
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  # Successes clean themselves up after a day; failures stay put, because a
+  # failed migration is the thing you most want to still be able to read.
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: brokul-core-migrate
+    spec:
+      restartPolicy: OnFailure
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      containers:
+      - name: migrate
+        image: ghcr.io/inspiration-particle/brokul-core:0.1.0
+        env:
+        - name: MIGRATE
+          value: "true"
+        - name: SERVICE_NAME
+          value: "brokul.core"
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: SERVICE_ENV
+          value: "prod"
+        - name: SERVICE_VERSION
+          value: "0.1.0"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: TR_ENABLED
+          value: "true"
+        - name: TR_ENDPOINT
+          value: "otel-collector.observability.svc.cluster.local:4318"
+        - name: TR_HTTPS
+          value: "false"
+        - name: DB_HOST
+          value: "pg-op-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "brokul"
+        - name: DB_SSL
+          value: "true"
+        # The operator generates this Secret. The `brokul.` prefix on the role
+        # name is what puts it in THIS namespace rather than in `default` —
+        # enable_cross_namespace_secret in the operator's helm values, the same
+        # notation passbolt uses. The price is that the prefix is part of the
+        # Postgres role name, so the role really is called "brokul.brokul_user".
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: brokul.brokul-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: brokul.brokul-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: password

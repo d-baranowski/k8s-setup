@@ -30,6 +30,7 @@ spec:
       - "local   all             mattermost_user                         md5"
       - "local   all             core_event                              md5"
       - "local   all             passbolt.passbolt_user                  md5"
+      - "local   all             brokul.brokul_user                      md5"
 
       # ANY host, no-SSL explicitly allowed (matches: no encryption)
       - "hostnossl all           postgres         0.0.0.0/0              md5"
@@ -38,12 +39,14 @@ spec:
       - "hostnossl all           mattermost_user  0.0.0.0/0              md5"
       - "hostnossl all           core_event       0.0.0.0/0              md5"
       - "hostnossl all           passbolt.passbolt_user 0.0.0.0/0        md5"
+      - "hostnossl all           brokul.brokul_user 0.0.0.0/0            md5"
       - "hostnossl all           postgres         ::/0                   md5"
       - "hostnossl all           utro_user        ::/0                   md5"
       - "hostnossl all           n8n_user         ::/0                   md5"
       - "hostnossl all           mattermost_user  ::/0                   md5"
       - "hostnossl all           core_event       ::/0                   md5"
       - "hostnossl all           passbolt.passbolt_user ::/0             md5"
+      - "hostnossl all           brokul.brokul_user ::/0                 md5"
 
       # ANY host, SSL also allowed
       - "hostssl all            postgres         0.0.0.0/0              md5"
@@ -52,12 +55,14 @@ spec:
       - "hostssl all            mattermost_user  0.0.0.0/0              md5"
       - "hostssl all            core_event       0.0.0.0/0              md5"
       - "hostssl all            passbolt.passbolt_user 0.0.0.0/0        md5"
+      - "hostssl all            brokul.brokul_user 0.0.0.0/0            md5"
       - "hostssl all            postgres         ::/0                   md5"
       - "hostssl all            utro_user        ::/0                   md5"
       - "hostssl all            n8n_user         ::/0                   md5"
       - "hostssl all            mattermost_user  ::/0                   md5"
       - "hostssl all            core_event       ::/0                   md5"
       - "hostssl all            passbolt.passbolt_user ::/0             md5"
+      - "hostssl all            brokul.brokul_user ::/0                 md5"
 
   env:
     - name: WAL_S3_BUCKET
@@ -98,6 +103,16 @@ spec:
     # Postgres role name. No flags — passbolt owns its database and creates
     # nothing outside it.
     passbolt.passbolt_user: []
+    # Brokuł, also in its own namespace — same cross-namespace notation, same
+    # price paid on the role name.
+    #
+    # NO FLAGS, AND THAT IS THE WHOLE POINT. Brokuł's authorisation model is
+    # row-level security and nothing else: a role with SUPERUSER or BYPASSRLS has
+    # no policies applied to it at all, so every policy in that schema would
+    # quietly stop meaning anything while the app carried on working perfectly.
+    # It owns its own database so it can migrate it, and its tables carry FORCE
+    # ROW LEVEL SECURITY so that ownership is not a second way round.
+    brokul.brokul_user: []
 
   databases:
     n8n: n8n_user
@@ -106,3 +121,4 @@ spec:
     # Owned by the role above, so passbolt can run its own migrations. The
     # namespace prefix is part of the role name here too.
     passbolt: passbolt.passbolt_user
+    brokul: brokul.brokul_user
