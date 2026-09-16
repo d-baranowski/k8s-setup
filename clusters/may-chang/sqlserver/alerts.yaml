@@ -36,7 +36,7 @@ spec:
           annotations:
             summary: "Płatnik backup job {{ $labels.job_name }} failed"
             description: >-
-              The hourly backup of the platnik database failed. Check
+              The hourly backup of the platnik_migracja database failed. Check
               `kubectl -n sqlserver logs job/{{ $labels.job_name }} --all-containers`.
               Common causes: expired S3 credentials, or the database being
               unreachable. Backups older than 14 days are already gone, so
