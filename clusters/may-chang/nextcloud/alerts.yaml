@@ -64,9 +64,13 @@ spec:
         # the node's numbers, not the volume's. A PVC-based rule would therefore
         # be measuring the wrong thing while looking like it worked.
         #
-        # The node is also the honest unit of risk. Nextcloud's 100Gi request
-        # reserves nothing, and kadis's disk is shared with the Płatnik SQL
-        # Server holding filed ZUS data — filling it takes that down too.
+        # The node is also the honest unit of risk, and the risk is Jenkins
+        # rather than the database. kadis is a build agent as well as a k3s node,
+        # and its resourceLimits bound CPU and memory but not disk; Docker's
+        # storage sits outside k3s's containerd, so it is invisible to every
+        # per-pod metric here. The Płatnik SQL Server it shares the node with is
+        # 641Mi in total (measured 2026-09-16), so it is neither the threat nor
+        # the thing most at risk — Nextcloud's own files are.
         #
         # The join exists because node-exporter here carries only an `instance`
         # label, which is kadis's Tailscale IP. Selecting on it directly would
@@ -84,11 +88,14 @@ spec:
           annotations:
             summary: "kadis has less than 50GB free"
             description: >-
-              {{ $value | humanize1024 }}B free on kadis. This is shared between
-              Nextcloud's files, the Płatnik SQL Server database and the node's
-              own /nix/store — local-path enforces no quota on any of them, so
-              whichever fills it takes the others down. Find the culprit with
-              `sudo du -sh /var/lib/rancher/k3s/storage/*` on the node.
+              {{ $value | humanize1024 }}B free on kadis, shared by Nextcloud's
+              files, Jenkins' Docker build artifacts and /nix/store, none of
+              which is quota'd. Check Jenkins first — it is the only one of the
+              three that grows unattended, and its retention is by age rather
+              than size. On the node: `docker system df` and
+              `sudo du -sh /var/lib/docker /nix/store /var/lib/rancher/k3s`.
+              `systemctl start docker-image-prune` reclaims early if a build
+              spike is the cause.
 
         - alert: NextcloudBackupStale
           expr: >-
