@@ -1,0 +1,83 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud-redis
+  namespace: nextcloud
+  labels: &labels
+    app: nextcloud
+    component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels: *labels
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      # Pinned to kadis for LATENCY, not for data gravity — this is the one pin
+      # in this directory that could be moved without a copy. Nextcloud takes a
+      # Redis round trip on every file-lock acquisition and release, so putting
+      # Redis on may-chang or xiao-mei would add a cross-node hop to the inside
+      # of every file operation. Nothing breaks if it moves; it just gets slower.
+      nodeSelector:
+        kubernetes.io/hostname: kadis
+      containers:
+        - name: redis
+          # Resolved 2026-09-16. Tag and digest both pinned, as everywhere else
+          # in this repo.
+          image: redis:8.10.1-trixie@sha256:298e5b3bc566bade82f46ad5511777a4a07a294097ce16ada2f6a42be5239df5
+          imagePullPolicy: IfNotPresent
+          # No persistence, deliberately: --save "" turns off RDB snapshots and
+          # --appendonly no turns off the AOF. Nextcloud uses this for caching
+          # and locking only, so a restart costs a cold cache and some locks
+          # that are simply re-acquired — nothing that needs to survive. The
+          # point is that Redis then never writes to kadis's disk, which is the
+          # scarce resource this whole directory is written around.
+          #
+          # maxmemory with allkeys-lru bounds the other direction: a cache with
+          # no ceiling is just a slower memory leak.
+          command:
+            - redis-server
+            - --save
+            - ""
+            - --appendonly
+            - "no"
+            - --maxmemory
+            - 256mb
+            - --maxmemory-policy
+            - allkeys-lru
+            - --requirepass
+            - $(REDIS_PASSWORD)
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-redis
+                  key: password
+          ports:
+            - name: redis
+              containerPort: 6379
+          # -a is passed through the environment so the password never appears
+          # in the process list or in `kubectl describe`.
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping"]
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping"]
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              # Above --maxmemory 256mb on purpose: the limit has to leave room
+              # for Redis's own overhead and fragmentation, or the kernel OOM
+              # kills it before its own eviction policy ever gets to run.
+              memory: "384Mi"

@@ -1,0 +1,202 @@
+# Nightly backup of Nextcloud: the database, and the files.
+#
+# WHY RESTIC AND NOT THE SQLSERVER PATTERN. platnik-backup writes a fresh .bak
+# every hour and lets S3 expire the old ones, which works because each dump is
+# independent and a password manager's database is small. A file store is not:
+# re-uploading the whole corpus nightly would bill for the same unchanged bytes
+# every day and grow without bound. restic does content-defined chunking, so an
+# unchanged file costs nothing on the second run and the repository grows by the
+# delta.
+#
+# WHAT IS BACKED UP. The whole /var/www/html volume, not just data/ — that is
+# what makes config/config.php and the apps installed through the web UI
+# recoverable, and the ~1GiB of release code it also sweeps up is deduplicated
+# to nothing after the first snapshot. Plus a pg_dump of the nextcloud database,
+# because the cluster-wide logical dump at 02:30 is a different artifact in a
+# different bucket with its own retention, and a restore wants both halves from
+# the same moment.
+#
+# CONSISTENCY, HONESTLY. There is no `occ maintenance:mode --on` here. Turning
+# it on needs a container that can run occ, and if the snapshot then fails there
+# is no container left to turn it off — Nextcloud would be left wedged in
+# maintenance mode by its own backup job, which is a worse outage than the one
+# this is insuring against. So the dump and the snapshot are taken back to back
+# and the small skew between them is repaired on restore:
+#
+#   occ maintenance:repair
+#   occ files:scan --all
+#
+# files:scan rebuilds oc_filecache from what is actually on disk, which is
+# exactly the class of inconsistency a few seconds of skew can produce.
+#
+# RETENTION IS RESTIC'S JOB, NOT S3's. See the lifecycle rule in
+# infra/kadis/backups.tf and the comment there — an expiration rule on this
+# prefix would corrupt the repository.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nextcloud-backup
+  namespace: nextcloud
+  labels:
+    app: nextcloud
+    component: backup
+spec:
+  # 01:30, an hour before pg-op-cluster's own logical dump at 02:30, so the two
+  # are not competing for the same database at the same time.
+  schedule: "30 1 * * *"
+  timeZone: "Europe/Warsaw"
+  # Never let a slow backup overlap the next night's. restic takes a repository
+  # lock anyway and the second run would fail on it, but failing here is quieter
+  # than failing there.
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: nextcloud
+            component: backup
+        spec:
+          restartPolicy: Never
+          # nextcloud-data is a local-path RWO volume whose PV is pinned to
+          # kadis. Two pods may mount an RWO volume at once *on the same node*;
+          # scheduling this anywhere else fails with a multi-attach error. Must
+          # match the Deployment's nodeSelector.
+          nodeSelector:
+            kubernetes.io/hostname: kadis
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: nextcloud-data
+            # Carries the SQL dump from the dump step to the snapshot step.
+            - name: handoff
+              emptyDir: {}
+          initContainers:
+            - name: db-dump
+              # Matches pg-op-cluster's version: "15". pg_dump refuses to dump a
+              # server newer than itself, so this tag has to move when the
+              # cluster's does.
+              image: postgres:15-alpine@sha256:fe0737ba566a2c5b2a28f34433c0a423261900ec17b9bf7ad115e1aae7e57f1b
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: PGHOST
+                  value: "pg-op-cluster.default.svc.cluster.local"
+                - name: PGDATABASE
+                  value: "nextcloud"
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: nextcloud.nextcloud-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+                      key: username
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: nextcloud.nextcloud-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+                      key: password
+              volumeMounts:
+                - name: handoff
+                  mountPath: /run/backup
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+                  echo "== dumping $PGDATABASE from $PGHOST"
+                  # Plain SQL rather than a custom-format archive: restic
+                  # chunks a text dump far better than a compressed one, where
+                  # a single early change shifts every subsequent byte and
+                  # defeats deduplication. The size before compression does not
+                  # matter here; the delta does.
+                  pg_dump --no-owner --no-privileges > /run/backup/nextcloud.sql
+                  echo "== dumped $(wc -c < /run/backup/nextcloud.sql) bytes"
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "256Mi"
+          containers:
+            - name: snapshot
+              # restic 0.19.1, resolved 2026-09-16.
+              image: restic/restic:0.19.1@sha256:136600b6ff6843d61d355f7f71f460a166429f35de6fd11b568fece3c9a4d510
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: RESTIC_REPOSITORY
+                  value: "s3:s3.eu-central-1.amazonaws.com/kadis-ad77fef6-backups/nextcloud"
+                - name: RESTIC_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: nextcloud-restic
+                      key: RESTIC_PASSWORD
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: nextcloud-restic
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: nextcloud-restic
+                      key: AWS_SECRET_ACCESS_KEY
+              volumeMounts:
+                # Read-only: this job has no business writing to the volume, and
+                # the guarantee is cheap to give.
+                - name: data
+                  mountPath: /data
+                  readOnly: true
+                - name: handoff
+                  mountPath: /run/backup
+                  readOnly: true
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+
+                  echo "== ensuring repository exists"
+                  # Idempotent: `restic init` against an initialised repository
+                  # is an error, so probe first. This is also the step that
+                  # makes the very first run work without a separate one-time
+                  # command somebody has to remember.
+                  if ! restic cat config >/dev/null 2>&1; then
+                    echo "== initialising new repository"
+                    restic init
+                  fi
+
+                  echo "== backing up"
+                  # --host fixes the snapshot hostname. Without it restic uses
+                  # the pod name, every Job gets a different one, and the
+                  # --keep-* policies below — which group by host — would retain
+                  # one snapshot per run forever instead of pruning anything.
+                  restic backup \
+                    --host nextcloud \
+                    --tag nightly \
+                    /data /run/backup
+
+                  echo "== applying retention"
+                  # Retention lives here rather than in an S3 lifecycle rule.
+                  # restic pack files are shared between snapshots by content,
+                  # so S3 cannot know which are still referenced; expiring them
+                  # by age would delete live data and the repository would not
+                  # fail until a restore. See infra/kadis/backups.tf.
+                  restic forget \
+                    --host nextcloud \
+                    --keep-daily 7 \
+                    --keep-weekly 4 \
+                    --keep-monthly 6 \
+                    --prune
+
+                  echo "== snapshots now in the repository"
+                  restic snapshots --host nextcloud
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "256Mi"
+                limits:
+                  # restic is CPU-hungry while chunking and hashing, and this
+                  # runs at 01:30 on a node whose other tenant is idle then.
+                  cpu: "2"
+                  memory: "2Gi"

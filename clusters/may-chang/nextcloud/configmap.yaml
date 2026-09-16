@@ -1,0 +1,70 @@
+# Non-secret configuration. Credentials are not here: the database password
+# comes from the Postgres operator's own secret, and the admin, Redis, SMTP and
+# restic secrets each have their own ExternalSecret file.
+#
+# Everything below is read by the image's entrypoint on FIRST BOOT and written
+# into config/config.php. Afterwards config.php is the source of truth and most
+# of these are ignored — changing a value here does not change a running
+# instance. To change one after install, use
+# `kubectl -n nextcloud exec deploy/nextcloud -- php occ config:system:set ...`
+# and change it here too, so a rebuild from empty agrees with the running state.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nextcloud-config
+  namespace: nextcloud
+  labels:
+    app: nextcloud
+    component: configmap
+data:
+  # --- database -----------------------------------------------------------
+  # The shared pg-op-cluster in `default`, same cluster utro, mattermost and
+  # passbolt use. Nextcloud gets its own database and its own role there
+  # (pg-operator/cluster.yaml); it does not run a Postgres of its own. That is
+  # also what puts it inside that cluster's WAL-to-S3 archiving and its 02:30
+  # logical dump, with no per-database configuration needed.
+  POSTGRES_HOST: "pg-op-cluster.default.svc.cluster.local"
+  POSTGRES_DB: "nextcloud"
+
+  # --- exposure -----------------------------------------------------------
+  # The MagicDNS name the Tailscale Ingress serves. TRUSTED_DOMAINS is a
+  # security control, not cosmetics: Nextcloud refuses requests whose Host
+  # header is not listed, which is what stops a host-header injection turning
+  # into a poisoned password-reset link.
+  NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.folk-saiph.ts.net"
+
+  # OVERWRITEPROTOCOL is load-bearing and its absence is a subtle failure. The
+  # Tailscale proxy terminates TLS and speaks plain HTTP to the Service, so PHP
+  # sees an http:// request and generates http:// URLs for assets, WebDAV and
+  # share links. The browser then blocks them as mixed content and the web UI
+  # loads as an unstyled skeleton — which reads like a broken deployment rather
+  # than a one-line configuration mistake.
+  OVERWRITEPROTOCOL: "https"
+  OVERWRITEHOST: "nextcloud.folk-saiph.ts.net"
+  OVERWRITECLIURL: "https://nextcloud.folk-saiph.ts.net"
+
+  # --- cache and locking --------------------------------------------------
+  # Redis backs both the shared memcache and the transactional file locking.
+  # Without it Nextcloud falls back to database locking, which is slower and
+  # deadlocks under concurrent sync clients.
+  REDIS_HOST: "nextcloud-redis"
+  REDIS_HOST_PORT: "6379"
+
+  # --- php ----------------------------------------------------------------
+  # There is no proxy body-size limit in front of this. The Tailscale operator's
+  # proxy is a Go reverse proxy with no request-size knob, so unlike every other
+  # large-upload path in this repo — brokul 24m, mattermost 100M, grafana 16M,
+  # all nginx — the ONLY ceiling on an upload is PHP's. That makes these two the
+  # whole story, and it is untested ground here: see ingress.yaml.
+  PHP_MEMORY_LIMIT: "1G"
+  PHP_UPLOAD_LIMIT: "10G"
+
+  # --- email --------------------------------------------------------------
+  # Resend's SMTP gateway with the API key as the password (smtp-secret.yaml),
+  # the same transport passbolt and utro use.
+  SMTP_HOST: "smtp.resend.com"
+  SMTP_PORT: "587"
+  SMTP_SECURE: "tls"
+  SMTP_NAME: "resend"
+  MAIL_FROM_ADDRESS: "nextcloud"
+  MAIL_DOMAIN: "inspiration-particle.com"

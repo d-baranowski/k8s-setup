@@ -1,0 +1,51 @@
+# Tailnet-only exposure: https://nextcloud.folk-saiph.ts.net
+#
+# The Tailscale operator turns this Ingress into a dedicated tailnet node
+# running a proxy, and provisions an auto-renewing Let's Encrypt certificate for
+# the MagicDNS name — so there is no cert-manager Certificate, no TLS Secret and
+# no nginx of our own here. Same pattern as passbolt/ingress.yaml.
+#
+# The proxy terminates TLS and speaks plain HTTP to the Service, which is why
+# the container serves on port 80 and why OVERWRITEPROTOCOL=https is set in
+# configmap.yaml.
+#
+# There is deliberately no `tailscale.com/funnel: "true"` annotation. Funnel
+# would publish this to the public internet, and a file server with user
+# accounts, WebDAV and public share links is a broader target than passbolt was
+# when its ingress refused Funnel for the same reason. Sync clients work from
+# any device that is on the tailnet.
+#
+# KNOWN UNKNOWN — upload size. The operator's proxy is a Go reverse proxy with
+# no configurable request-size limit, so nothing between the client and PHP
+# caps an upload: PHP_UPLOAD_LIMIT is the only ceiling. Every other large-upload
+# path in this repo sits behind nginx and sets a limit explicitly — brokul 24m,
+# mattermost 100M, grafana 16M — so this configuration is untested here. Upload
+# something over a gigabyte before trusting it. If the proxy turns out to
+# truncate or time out, the fallback is a `loadBalancerClass: tailscale` Service
+# with our own nginx in front, the way mattermost does it — but note that
+# observability-resources/grafana-nginx-proxy.yaml already flags that pattern as
+# deprecated, with a cert-sync CronJob that never once produced a real cert.
+#
+# The tailnet address never answers ping — the proxy DNATs to a ClusterIP. Test
+# it with the TCP port, e.g. `nc -vz nextcloud.folk-saiph.ts.net 443`.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+  labels:
+    app: nextcloud
+    component: ingress
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: nextcloud
+      port:
+        number: 80
+  tls:
+    # Short name on purpose: the operator appends the tailnet suffix, giving
+    # nextcloud.folk-saiph.ts.net. It must match NEXTCLOUD_TRUSTED_DOMAINS and
+    # OVERWRITEHOST in configmap.yaml.
+    - hosts:
+        - nextcloud

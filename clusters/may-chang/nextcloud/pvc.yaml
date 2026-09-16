@@ -1,0 +1,33 @@
+# Nextcloud's entire application root, not just the user files.
+#
+# The image declares VOLUME /var/www/html and its entrypoint unpacks the release
+# into it on first boot. Mounting only /var/www/html/data — the obvious reading
+# of "the data volume" — would leave config/config.php and every app installed
+# through the web UI in the container's writable layer, to be lost silently on
+# the next rollout. User files live at data/ inside this volume.
+#
+# local-path is node-local: the PV takes a hard nodeAffinity on whichever node
+# first schedules the pod, and the pod cannot move afterwards without the data
+# being copied across by hand. The Deployment states nodeSelector kadis
+# explicitly rather than leaving that implied.
+#
+# 100Gi is ADVISORY AND NOT ENFORCED. local-path is a bind mount on the node's
+# root filesystem, so this number reserves nothing and stops nothing: Nextcloud
+# can fill kadis's disk and take the Płatnik SQL Server down with it, which is
+# the actual risk here and why alerts.yaml watches the node filesystem rather
+# than this claim. At the time of writing kadis had 292Gi free of 467Gi, with
+# SQL Server occupying roughly 130Gi against its own declared 20Gi.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-data
+  namespace: nextcloud
+  labels:
+    app: nextcloud
+    component: pvc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 100Gi
