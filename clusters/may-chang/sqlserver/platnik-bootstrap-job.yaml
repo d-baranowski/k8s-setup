@@ -74,7 +74,7 @@
 #      bazę danych -> Microsoft SQL Server.
 #        - Nazwa serwera: sqlserver.<tailnet>.ts.net  (never the "(local)"
 #          alias — ZUS warns it breaks archiving and migration)
-#        - Nazwa bazy: platnik
+#        - Nazwa bazy: platnik_migracja
 #        - Login: the person's own login from Secret Manager
 #        - Sterownik: MSOLEDBSQL
 apiVersion: batch/v1

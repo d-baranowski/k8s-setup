@@ -46,6 +46,13 @@ data "aws_iam_policy_document" "s3_access" {
 
     actions = [
       "s3:ListBucket",
+      # Needed by any client that uploads via multipart, which every S3 SDK
+      # does above a size threshold. restic (the Nextcloud backup) fails
+      # outright without these; a plain `aws s3 cp` of a large enough file
+      # would too. Do not prune them because a small backup happens to work
+      # without them — the failure appears only once an object gets big.
+      "s3:GetBucketLocation",
+      "s3:ListBucketMultipartUploads",
     ]
 
     resources = [aws_s3_bucket.this.arn]
@@ -61,6 +68,13 @@ data "aws_iam_policy_document" "s3_access" {
       "s3:DeleteObject",
       "s3:GetObjectVersion",
       "s3:PutObjectAcl",
+      # The object half of multipart — see the bucket statement above.
+      "s3:ListMultipartUploadParts",
+      "s3:AbortMultipartUpload",
+      # Versioned buckets only really delete when the version goes. Without
+      # this, `restic forget --prune` leaves readable noncurrent copies of
+      # snapshots it reports as removed.
+      "s3:DeleteObjectVersion",
     ]
 
     resources = [
