@@ -78,6 +78,33 @@ spec:
               curl -fsS --max-time 5 http://nextcloud.nextcloud.svc.cluster.local/status.php \
                 | grep -q '"installed":true'
 
+              echo "== reverse proxy =="
+              # Without this Nextcloud treats the Tailscale proxy's own pod IP
+              # as the client address. Every login, every rate limit and every
+              # entry in the security log then describes the proxy rather than
+              # the person, and the admin overview flags it as a security error:
+              # an attacker who can set X-Forwarded-For can forge their apparent
+              # IP, because Nextcloud has no way to know which hop to believe.
+              #
+              # The CIDR, not the pod IP. The proxy is a StatefulSet pod and
+              # takes a new address on every restart — pinning 10.42.2.100 today
+              # means silently reverting to the broken behaviour the next time
+              # the operator rebuilds it, with no error to notice. 10.42.0.0/16
+              # is this cluster's pod network (nodes carry /24s out of it:
+              # may-chang 10.42.0.0/24, xiao-mei 10.42.1.0/24, kadis
+              # 10.42.2.0/24), so it also covers the proxy moving node.
+              #
+              # This is safe to widen to the pod network precisely because
+              # nothing outside the cluster can reach port 80 — the Service has
+              # no NodePort and the only route in is the Tailscale Ingress.
+              su -s /bin/sh -c "php occ config:system:delete trusted_proxies"  www-data || true
+              su -s /bin/sh -c "php occ config:system:set trusted_proxies 0 --value=10.42.0.0/16" www-data
+              # Stated explicitly rather than relying on the default: the header
+              # the Tailscale proxy actually sets is X-Forwarded-For, and a
+              # trusted_proxies entry with the wrong header name trusts the hop
+              # while still reading the wrong address.
+              su -s /bin/sh -c "php occ config:system:set forwarded_for_headers 0 --value=HTTP_X_FORWARDED_FOR" www-data
+
               echo "== applying locale settings =="
               # Polish throughout: interface language, date and number formats,
               # and the region that bare national phone numbers are parsed
