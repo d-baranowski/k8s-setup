@@ -49,6 +49,21 @@ spec:
         app: passbolt
         component: register-admin
     spec:
+      # MUST match the Deployment's fsGroup, and for the same reason.
+      #
+      # The gpg volume below is mounted 0440 — owner and group only. fsGroup 33
+      # (www-data) is what makes the projected files group-owned by 33, and this
+      # script runs every cake command through `as_www`. Without it the files
+      # are root:root 0440, and the import fails with
+      #
+      #   gpg: can't open '/etc/passbolt/gpg/serverkey.asc': Permission denied
+      #
+      # which gpg reports as a *warning* — it then exits 0 having processed
+      # nothing, and the failure only surfaces later as a Job that never
+      # registers anybody. The Deployment had this from the start; the Job was
+      # written without it and so could never have worked.
+      securityContext:
+        fsGroup: 33
       restartPolicy: OnFailure
       volumes:
         # Same server key the Deployment mounts. It is a Secret, not the RWO
