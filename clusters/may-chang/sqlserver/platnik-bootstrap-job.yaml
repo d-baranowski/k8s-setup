@@ -455,7 +455,16 @@ spec:
 
               echo ""
               echo "== summary =="
-              sa -Q "$(cat <<SQL
+              # Fed through stdin like every other batch here, NOT through
+              # `sa -Q "$(cat <<SQL ...)"`. As a single -Q argument this batch
+              # used to come back as "Unclosed quotation mark" with a fragment
+              # of the sqlcmd path spliced into the middle of the EXEC string —
+              # sqlcmd overrunning a buffer, not a quoting mistake. It only
+              # started once PLATNIK_DB went from `platnik` to `platnik_migracja`
+              # and three interpolations got nine characters longer each. The
+              # work was already done by then, so the Job failed on its own
+              # report card. -i /dev/stdin has no such limit.
+              sa_stdin <<SQL
               SET NOCOUNT ON;
               SELECT 'collation        : ' + CONVERT(varchar(128), SERVERPROPERTY('Collation'));
               SELECT 'edition          : ' + CONVERT(varchar(128), SERVERPROPERTY('Edition'));
@@ -473,7 +482,6 @@ spec:
                         JOIN [$PLATNIK_DB].sys.database_principals u ON u.principal_id = m.member_principal_id
                         WHERE r.name = N''platnik_app''');
               SQL
-              )"
               echo ""
               echo "Server is ready."
           resources:
