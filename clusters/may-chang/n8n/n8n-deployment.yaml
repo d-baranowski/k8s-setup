@@ -8,7 +8,24 @@ metadata:
     app: n8n
     component: deployment
 spec:
-  replicas: 1
+  # Parked at 0 on 2026-09-16: nothing is using n8n. Scaled rather than deleted,
+  # so bringing it back is this one line.
+  #
+  # Deleting it instead would mean removing the resources from
+  # n8n/kustomization.yaml, and that Kustomization sets prune: true — Flux would
+  # take the Service, the Ingress and the ConfigMap with it. Recoverable from
+  # git, but a bigger hole than parking needs to dig.
+  #
+  # What survives: the workflows, which live in the `n8n` database on
+  # pg-op-cluster, along with the n8n_user role and its pg_hba lines. None of
+  # that is touched here, and none of it costs anything while the pod is down.
+  #
+  # What does NOT survive, and did not survive any of the 8 restarts this pod
+  # has already had: this Deployment mounts no volume and sets no
+  # N8N_ENCRYPTION_KEY, so anything n8n keeps in ~/.n8n is in the container's
+  # ephemeral layer. Stored credentials may not decrypt when it comes back.
+  # Re-entering them is the expected cost of restarting it.
+  replicas: 0
   selector:
     matchLabels: *labels
   template:
