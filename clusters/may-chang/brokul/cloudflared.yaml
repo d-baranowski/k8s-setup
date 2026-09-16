@@ -1,0 +1,87 @@
+# How brokul.inspiration-particle.com reaches this cluster.
+#
+# The cluster has no public IP; everything that is reachable from the internet
+# arrives through a Cloudflare tunnel. utro runs its own, and Brokuł gets its own
+# rather than a second route on utro's, so that restarting or rotating one cannot
+# take the other down.
+#
+# THREE THINGS MUST BE DONE BY HAND BEFORE THIS WORKS, none of them expressible
+# here:
+#
+#   1. Create the tunnel in Cloudflare Zero Trust and copy its token.
+#   2. Put that token in GCP Secret Manager as `brokul-cloudflare-tunnel`.
+#   3. Add the public hostname on the tunnel:
+#        brokul.inspiration-particle.com  ->  http://<nginx-ingress controller svc>
+#      and the CNAME in the inspiration-particle.com zone, PROXIED (orange) —
+#      a tunnel record must be proxied, which is the opposite of the rule for the
+#      CloudFront asset record next door.
+#
+# Until then the pods run and report not-ready, which is the honest state: a
+# tunnel with no token has nothing to connect to.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: brokul-cloudflare-tunnel
+  namespace: brokul
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: google-secrets
+    kind: ClusterSecretStore
+  target:
+    name: brokul-cloudflare-tunnel
+    creationPolicy: Owner
+  data:
+    - secretKey: value
+      remoteRef:
+        key: brokul-cloudflare-tunnel
+        version: latest
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: brokul-cloudflared
+  namespace: brokul
+spec:
+  serviceName: brokul-cloudflared
+  replicas: 2
+  selector:
+    matchLabels:
+      app: brokul-cloudflared
+  template:
+    metadata:
+      labels:
+        app: brokul-cloudflared
+    spec:
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:2026.1.2
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: brokul-cloudflare-tunnel
+                  key: value
+          command:
+            - cloudflared
+            - tunnel
+            - --no-autoupdate
+            - --loglevel
+            - info
+            - --protocol
+            - http2
+            - --metrics
+            - 0.0.0.0:2000
+            - run
+          livenessProbe:
+            httpGet:
+              # /ready is 200 only while it holds a connection to Cloudflare's
+              # network, so this is a real check rather than a process check.
+              path: /ready
+              port: 2000
+            failureThreshold: 5
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits:   { memory: 192Mi }

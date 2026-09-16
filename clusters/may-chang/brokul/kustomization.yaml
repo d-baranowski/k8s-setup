@@ -1,0 +1,33 @@
+# Flux reconciles what this file LISTS. A manifest sitting in this directory
+# without an entry here is inert, silently and forever — utro's prod
+# assets-s3 secret has been in exactly that state for months, which is why
+# every file here is listed and why removing one is a deliberate act.
+#
+# TWO OF THESE ARE WRITTEN BY TERRAFORM, not by hand:
+#
+#   assets-s3-externalsecret.yaml
+#   gateway-firebase-externalsecret.yaml
+#
+# They carry a GENERATED header and are reverted on the next apply if edited.
+# They are listed here even though `terraform apply` has not run yet: a missing
+# file makes this kustomization fail to build, loudly, which is the correct
+# failure. The alternative — leaving them out until they exist — is how the file
+# nobody listed came to be unlisted in the first place.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - ghcr-pull-secret.yaml
+  - assets-s3-externalsecret.yaml
+  - gateway-firebase-externalsecret.yaml
+  - core-statefulset.yaml
+  - core-service.yaml
+  - core-migrate-job.yaml
+  - gateway-statefulset.yaml
+  - gateway-service.yaml
+  - assets-statefulset.yaml
+  - assets-service.yaml
+  - web-statefulset.yaml
+  - web-service.yaml
+  - ingress.yaml
+  - cloudflared.yaml

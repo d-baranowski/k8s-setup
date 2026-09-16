@@ -1,0 +1,108 @@
+# Uploads and the rendition ladder, against the real S3 bucket rather than MinIO.
+#
+# ONE REPLICA, on purpose. The reaper is a background loop that deletes orphaned
+# objects, and a second copy of it is a second process racing the same rows for
+# no gain — the service is not the bottleneck here, S3 is.
+#
+# Static keys rather than IRSA because k0s has no OIDC provider. That is a
+# property of this cluster, not a preference; the keys come from Secret Manager
+# through the ExternalSecret Terraform writes.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: brokul-assets
+  namespace: brokul
+  labels:
+    app: brokul-assets
+spec:
+  serviceName: brokul-assets
+  replicas: 1
+  selector:
+    matchLabels:
+      app: brokul-assets
+  template:
+    metadata:
+      labels:
+        app: brokul-assets
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      containers:
+      - name: assets
+        image: ghcr.io/inspiration-particle/brokul-assets:0.1.0
+        ports:
+        - containerPort: 9003
+          name: api
+        - containerPort: 8081
+          name: health
+        env:
+        - name: SERVICE_NAME
+          value: "brokul.assets"
+        - name: API_PORT
+          value: "9003"
+        - name: HEALTH_PORT
+          value: "8081"
+        - name: STORAGE_ENDPOINT
+          value: "s3.eu-central-1.amazonaws.com"
+        - name: STORAGE_BUCKET
+          value: "brokul-assets-eu-central-1"
+        - name: STORAGE_REGION
+          value: "eu-central-1"
+        - name: STORAGE_USE_SSL
+          value: "true"
+        # What the service reports as an asset's public home. The browser does
+        # not use it — app/web proxies /api/assets server-side — but anything
+        # that hands out a URL should hand out the CDN's, not the pod's.
+        - name: ASSETS_PUBLIC_BASE_URL
+          value: "https://brokul-assets.inspiration-particle.com"
+        - name: STORAGE_ACCESS_KEY
+          valueFrom:
+            secretKeyRef: { name: brokul-assets-s3, key: STORAGE_ACCESS_KEY }
+        - name: STORAGE_SECRET_KEY
+          valueFrom:
+            secretKeyRef: { name: brokul-assets-s3, key: STORAGE_SECRET_KEY }
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: SERVICE_ENV
+          value: "prod"
+        - name: SERVICE_VERSION
+          value: "0.1.0"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: TR_ENABLED
+          value: "true"
+        - name: TR_ENDPOINT
+          value: "otel-collector.observability.svc.cluster.local:4318"
+        - name: TR_HTTPS
+          value: "false"
+        - name: DB_HOST
+          value: "pg-op-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "brokul"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: brokul.brokul-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: brokul.brokul-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: password
+        livenessProbe:
+          httpGet: { path: /live, port: health }
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet: { path: /ready, port: health }
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          # Rendering a ladder of WebP/AVIF from a 20MB upload is the memory
+          # spike here, not steady state.
+          requests: { cpu: 100m, memory: 256Mi }
+          limits:   { memory: 1Gi }

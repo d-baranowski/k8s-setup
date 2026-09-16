@@ -1,0 +1,15 @@
+# Brokuł runs in its own namespace rather than in `default` alongside utro,
+# mattermost and n8n.
+#
+# The cost is real and worth naming: a Kubernetes Secret cannot be read across
+# namespaces, so everything secret has to arrive here on purpose — the GHCR pull
+# token, the S3 keys, the Firebase service account, and the Postgres credentials
+# the operator generates. Each of those is a file in this directory for that
+# reason. The benefit is that a mistake in a Brokuł manifest cannot name a utro
+# Secret or Service by accident and quietly work.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: brokul
+  labels:
+    app.kubernetes.io/part-of: brokul

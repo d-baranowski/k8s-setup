@@ -1,0 +1,150 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: passbolt
+  namespace: passbolt
+  labels: &labels
+    app: passbolt
+    component: deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels: *labels
+  # Recreate, not RollingUpdate: passbolt-data is a ReadWriteOnce local-path
+  # volume, so a second pod could only ever attach it on the same node and the
+  # rollout would otherwise sit waiting for a Ready replica that cannot start.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      # The image's entrypoint needs root: it imports the GPG key, fixes up the
+      # JWT key permissions and drops to www-data with `su` before running
+      # anything of passbolt's. There is a `-non-root` variant upstream, but it
+      # shifts the ports to 8080/4433 and diverges from the documented install,
+      # so this uses the ordinary image like the rest of this repo does.
+      #
+      # fsGroup 33 is www-data in the Debian base: it makes the subPath
+      # directories on passbolt-data group-writable, so create_jwt_keys and
+      # avatar uploads work without a chown init container.
+      securityContext:
+        fsGroup: 33
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: passbolt
+          # Passbolt CE 5.15.0, current at the time of writing. Never :latest-ce
+          # — that would roll the application on any pod restart, and on a
+          # password manager an unplanned migration is not a small surprise. The
+          # digest is pinned alongside the tag so the bytes are fixed even if the
+          # tag is ever re-pushed.
+          image: passbolt/passbolt:5.15.0-1-ce@sha256:e16ff8720fd721861435518e0a8926f2d41895cca335ba5cd5ba168ae41ae9a9
+          imagePullPolicy: IfNotPresent
+          # Block until Postgres answers, then hand over to the normal
+          # entrypoint — the wrapper upstream's compose file uses, pointed at
+          # pg-op-cluster instead of a local db container. Without it a pod that
+          # starts while Postgres is restarting fails its migration step and
+          # burns a CrashLoopBackOff backoff for no reason. -t 0 means wait
+          # forever; the startupProbe is what actually bounds this.
+          command:
+            - /usr/bin/wait-for.sh
+            - -t
+            - "0"
+            - pg-op-cluster.default.svc.cluster.local:5432
+            - --
+            - /docker-entrypoint.sh
+          ports:
+            - name: http
+              containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: passbolt-config
+          env:
+            # Both from the secret the Postgres operator generates for
+            # `passbolt.passbolt_user`. The name is the operator's own format,
+            # `{namespace}.{username}.{cluster}.credentials...`, with underscores
+            # in the username rendered as dashes. If the pod cannot start
+            # because this secret is missing, check the operator got as far as
+            # creating it: `kubectl -n passbolt get secrets`.
+            - name: DATASOURCES_DEFAULT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: passbolt.passbolt-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+                  key: username
+            - name: DATASOURCES_DEFAULT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: passbolt.passbolt-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+                  key: password
+            - name: SECURITY_SALT
+              valueFrom:
+                secretKeyRef:
+                  name: passbolt-security-salt
+                  key: salt
+            - name: EMAIL_TRANSPORT_DEFAULT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: passbolt-smtp
+                  key: password
+          volumeMounts:
+            # Read-only on purpose: the entrypoint only generates a keypair when
+            # one of these two files is missing, so a mounted pair is also the
+            # thing that stops it ever inventing a new server identity.
+            - name: gpg
+              mountPath: /etc/passbolt/gpg
+              readOnly: true
+            - name: data
+              mountPath: /etc/passbolt/jwt
+          # /healthcheck/status.json is unauthenticated and, despite the name,
+          # deliberately shallow: it writes and reads one cache entry and returns
+          # OK. It says nothing about the database — which is exactly what makes
+          # it safe as a liveness probe, because a Postgres blip must not get
+          # this container killed and restarted into a boot that needs Postgres.
+          #
+          # It is still a good readiness signal: the entrypoint runs `cake
+          # passbolt install`/`migrate` before it execs supervisord, so nginx
+          # answering at all means the schema is already in place.
+          #
+          # Ten minutes of startup budget covers that first migration run on a
+          # fresh database.
+          startupProbe:
+            httpGet:
+              path: /healthcheck/status.json
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /healthcheck/status.json
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthcheck/status.json
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # nginx, php-fpm and a cron that drains the email queue — a handful of
+          # short-lived PHP workers for a couple of users, not a JVM. These are a
+          # first estimate rather than a measurement: revisit them from
+          # container_memory_max_usage_bytes in Prometheus once there is a week
+          # of real use, never from a `kubectl top` sample.
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+      volumes:
+        - name: gpg
+          secret:
+            secretName: passbolt-gpg-server-key
+            # Readable by www-data through fsGroup, and by nobody else.
+            defaultMode: 0440
+        - name: data
+          persistentVolumeClaim:
+            claimName: passbolt-data

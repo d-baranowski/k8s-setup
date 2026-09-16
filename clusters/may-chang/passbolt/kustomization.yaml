@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# The Flux Kustomization applying this directory
+# (flux-system/passbolt-kustomization.yaml) declares dependsOn for
+# external-secrets-resources, pg-operator and tailscale-operator, so the
+# ClusterSecretStore, the Postgres role and the tailscale IngressClass all
+# exist before any of this is applied.
+resources:
+  - namespace.yaml
+  - gpg-server-key-secret.yaml
+  - security-salt-secret.yaml
+  - smtp-secret.yaml
+  - configmap.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - register-admin-job.yaml
+  - alerts.yaml

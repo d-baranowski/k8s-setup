@@ -1,0 +1,66 @@
+# The Next standalone server, and the only pod the internet reaches.
+#
+# It is also the app's own reverse proxy: /api/rpc forwards to the gateway and
+# /api/assets to the assets service, both server-side. That is why neither of
+# those needs a public hostname, why there is no CORS to configure, and why the
+# browser's API base URL is a RELATIVE path.
+#
+# THE IMAGE IS TIED TO THIS ENVIRONMENT. Next inlines NEXT_PUBLIC_* at build
+# time, so the Firebase project and the API path are baked into the JavaScript.
+# `:0.1.0-prod` is not the same image as `:0.1.0-staging` and neither can
+# be retagged into the other — see tools/ci/release.sh in the brokul repo.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: brokul-web
+  namespace: brokul
+  labels:
+    app: brokul-web
+spec:
+  serviceName: brokul-web
+  replicas: 2
+  selector:
+    matchLabels:
+      app: brokul-web
+  template:
+    metadata:
+      labels:
+        app: brokul-web
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      containers:
+      - name: web
+        image: ghcr.io/inspiration-particle/brokul-web:0.1.0-prod
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: NEXT_TELEMETRY_DISABLED
+          value: "1"
+        # Where the two proxy route handlers forward to. Runtime values, not
+        # build-time: they are read by the Node server, never by the browser.
+        - name: RPC_UPSTREAM
+          value: "http://brokul-gateway.brokul.svc.cluster.local:9998"
+        - name: ASSETS_UPSTREAM
+          value: "http://brokul-assets.brokul.svc.cluster.local:9003"
+        # NEXT_PUBLIC_DEV_USER_ID must NEVER be set here. It makes the browser
+        # assert its own identity header and sends RPC straight at core, past the
+        # gateway — which is to say, past authentication.
+        livenessProbe:
+          tcpSocket: { port: http }
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket: { port: http }
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          requests: { cpu: 100m, memory: 256Mi }
+          limits:   { memory: 640Mi }

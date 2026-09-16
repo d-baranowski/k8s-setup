@@ -1,0 +1,41 @@
+# Tailnet-only exposure: https://passbolt.folk-saiph.ts.net
+#
+# The Tailscale operator turns this Ingress into a dedicated tailnet node
+# running a proxy, and provisions an auto-renewing Let's Encrypt certificate for
+# the MagicDNS name — so there is no cert-manager Certificate, no TLS Secret and
+# no nginx of our own here. Same pattern as open-seo/ingress.yaml.
+#
+# The proxy terminates TLS and speaks plain HTTP to the Service. That is why the
+# container serves on port 80: the image's nginx also listens on 443 with a
+# self-signed certificate it generates at boot, which nothing reaches and
+# nothing should.
+#
+# There is deliberately no `tailscale.com/funnel: "true"` annotation. Funnel
+# would publish this to the public internet, and while passbolt is built to be
+# internet-facing, nothing here (rate limiting, fail2ban, a WAF, MFA) has been
+# set up for that. The tailnet is the perimeter; an attacker still needs a
+# user's private key and passphrase, but they should not get as far as trying.
+#
+# Note that the tailnet address never answers ping — the proxy DNATs to a
+# ClusterIP. Test it with the TCP port, e.g. `nc -vz passbolt.folk-saiph.ts.net 443`.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: passbolt
+  namespace: passbolt
+  labels:
+    app: passbolt
+    component: ingress
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: passbolt
+      port:
+        number: 80
+  tls:
+    # Short name on purpose: the operator appends the tailnet suffix, giving
+    # passbolt.folk-saiph.ts.net. It must match APP_FULL_BASE_URL in
+    # configmap.yaml.
+    - hosts:
+        - passbolt

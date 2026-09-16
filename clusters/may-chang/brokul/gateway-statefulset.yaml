@@ -1,0 +1,118 @@
+# The only thing that verifies a Firebase ID token and turns it into a
+# core.user. It needs Postgres of its own for the shared rate limiter, not for
+# domain data.
+#
+# CAPTCHA IS OFF, DELIBERATELY. CaptchaEnabled defaults to true and startup then
+# FAILS without a Turnstile secret rather than silently accepting every token —
+# good behaviour, and it means this has to be an explicit decision. Brokuł has no
+# anonymous write endpoint for a captcha to protect: sign-in is Firebase,
+# client-side. Turn this back on with TURNSTILE_SECRET the day one appears.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: brokul-gateway
+  namespace: brokul
+  labels:
+    app: brokul-gateway
+spec:
+  serviceName: brokul-gateway
+  replicas: 2
+  selector:
+    matchLabels:
+      app: brokul-gateway
+  template:
+    metadata:
+      labels:
+        app: brokul-gateway
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      volumes:
+        # The Admin SDK wants a FILE. The ExternalSecret carries the JSON under a
+        # key named for the variable it would otherwise be, so it is projected to
+        # a sane filename here rather than renamed in Terraform.
+        - name: firebase-credentials
+          secret:
+            secretName: brokul-gateway-firebase
+            items:
+              - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+                path: credentials.json
+      containers:
+      - name: gateway
+        image: ghcr.io/inspiration-particle/brokul-gateway:0.1.0
+        ports:
+        - containerPort: 9998
+          name: api
+        - containerPort: 8081
+          name: health
+        volumeMounts:
+          - name: firebase-credentials
+            mountPath: /var/run/secrets/firebase
+            readOnly: true
+        env:
+        - name: SERVICE_NAME
+          value: "brokul.gateway"
+        - name: API_PORT
+          value: "9998"
+        - name: HEALTH_PORT
+          value: "8081"
+        # host:port, never a URL — both consumers add the scheme themselves, and
+        # a URL here produces "http://http://…".
+        - name: CORE_SERVICE
+          value: "brokul-core.brokul.svc.cluster.local:9102"
+        - name: FIREBASE_PROJECT_ID
+          value: "danb-ubuntu-k0s"
+        - name: FIREBASE_CREDENTIALS_FILE
+          value: "/var/run/secrets/firebase/credentials.json"
+        - name: FIREBASE_CHECK_REVOKED
+          value: "true"
+        - name: CAPTCHA_ENABLED
+          value: "false"
+        # Requests arrive from the web pod, same-origin proxied, so an Origin
+        # header is rarely present — the allow-list only bites when one is, which
+        # is the native client's case later.
+        - name: PUBLIC_ALLOWED_ORIGINS
+          value: "https://brokul.inspiration-particle.com"
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: SERVICE_ENV
+          value: "prod"
+        - name: SERVICE_VERSION
+          value: "0.1.0"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: TR_ENABLED
+          value: "true"
+        - name: TR_ENDPOINT
+          value: "otel-collector.observability.svc.cluster.local:4318"
+        - name: TR_HTTPS
+          value: "false"
+        - name: DB_HOST
+          value: "pg-op-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "brokul"
+        - name: DB_SSL
+          value: "true"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: brokul.brokul-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: brokul.brokul-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: password
+        livenessProbe:
+          httpGet: { path: /live, port: health }
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet: { path: /ready, port: health }
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          requests: { cpu: 50m, memory: 128Mi }
+          limits:   { memory: 384Mi }
