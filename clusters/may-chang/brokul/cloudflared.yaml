@@ -5,19 +5,20 @@
 # rather than a second route on utro's, so that restarting or rotating one cannot
 # take the other down.
 #
-# THREE THINGS MUST BE DONE BY HAND BEFORE THIS WORKS, none of them expressible
-# here:
+# The tunnel, its routing, the CNAME and the token are ALL Terraform, in
+# brokul/infra/terraform/tunnel.tf. Nothing here needs a dashboard visit and the
+# token never passes through a human: Terraform creates the tunnel, reads the
+# token off the resource and writes it into Secret Manager as
+# `brokul-cloudflare-tunnel`, which is the secret this ExternalSecret pulls.
 #
-#   1. Create the tunnel in Cloudflare Zero Trust and copy its token.
-#   2. Put that token in GCP Secret Manager as `brokul-cloudflare-tunnel`.
-#   3. Add the public hostname on the tunnel:
-#        brokul.inspiration-particle.com  ->  http://<nginx-ingress controller svc>
-#      and the CNAME in the inspiration-particle.com zone, PROXIED (orange) —
-#      a tunnel record must be proxied, which is the opposite of the rule for the
-#      CloudFront asset record next door.
+# So the only ordering that matters is: `terraform apply` in brokul/infra/terraform
+# before these pods can start. Until then they run and report not-ready, which is
+# the honest state — a tunnel with no token has nothing to connect to.
 #
-# Until then the pods run and report not-ready, which is the honest state: a
-# tunnel with no token has nothing to connect to.
+# The tunnel forwards to the nginx ingress controller rather than straight at
+# brokul-web (which is what utro's tunnel does), so that the Ingress annotations
+# next door — 24m bodies, 120s timeouts — actually apply to public traffic.
+
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
