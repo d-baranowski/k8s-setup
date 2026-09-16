@@ -53,6 +53,15 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 2
+      # Without this a run can wedge the schedule permanently, and neither
+      # backoffLimit nor restartPolicy helps. If a referenced Secret is missing
+      # the pod sits in CreateContainerConfigError forever: no container ever
+      # started, so nothing ever *failed*, so the Job stays Active — and with
+      # concurrencyPolicy: Forbid every later hour is skipped. PlatnikBackupJobFailed
+      # stays silent throughout; only PlatnikBackupStale would eventually notice.
+      # 50 minutes is inside the hourly period, so a wedged run fails, releases
+      # the Forbid lock, and trips the job-failed alert like anything else.
+      activeDeadlineSeconds: 3000
       template:
         metadata:
           labels:
@@ -202,6 +211,15 @@ spec:
                   set -euo pipefail
                   GZ="$(cat /run/backup/path)"
                   ENC="$GZ.enc"
+
+                  # Fail before touching anything rather than deriving a key
+                  # from the empty string and shipping an object that nobody —
+                  # including us — can ever open. An unopenable backup is worse
+                  # than a missing one, because it still looks like a backup.
+                  if [ -z "${BACKUP_PASSPHRASE:-}" ]; then
+                    echo "BACKUP_PASSPHRASE is empty — has the sqlserver-backup-passphrase ExternalSecret synced?" >&2
+                    exit 1
+                  fi
 
                   # -pass env: keeps the passphrase out of argv, where anything
                   # else on the node could read it out of /proc.

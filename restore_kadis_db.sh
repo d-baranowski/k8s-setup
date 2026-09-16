@@ -117,6 +117,14 @@ fi
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 [[ -n "$TARGET_DB" ]] || TARGET_DB="platnik_restore_$TS"
 
+# Everything the CronJob writes is encrypted, but --object can still name a key
+# from before that change. Branch on the suffix rather than assuming, so a
+# legacy .bak.gz restores by skipping the decrypt step instead of failing in it.
+case "$OBJECT" in
+  *.enc) LOCAL_SUFFIX="bak.gz.enc" ;;
+  *)     LOCAL_SUFFIX="bak.gz" ;;
+esac
+
 echo
 echo "  source : s3://$BUCKET/$OBJECT"
 echo "  target : [$TARGET_DB]"
@@ -185,8 +193,8 @@ spec:
               mkdir -p /var/opt/mssql/backup
               chmod 2775 /var/opt/mssql/backup
               echo "downloading s3://$BUCKET/$OBJECT"
-              aws s3 cp "s3://$BUCKET/$OBJECT" /var/opt/mssql/backup/restore_$TS.bak.gz.enc --only-show-errors
-              ls -la /var/opt/mssql/backup/restore_$TS.bak.gz.enc
+              aws s3 cp "s3://$BUCKET/$OBJECT" /var/opt/mssql/backup/restore_$TS.$LOCAL_SUFFIX --only-show-errors
+              ls -la /var/opt/mssql/backup/restore_$TS.$LOCAL_SUFFIX
         - name: decrypt
           image: $SERVER_IMAGE
           env:
@@ -199,6 +207,13 @@ spec:
             - |
               set -euo pipefail
               ENC=/var/opt/mssql/backup/restore_$TS.bak.gz.enc
+              # A legacy plaintext object never produced this file — say so and
+              # let the restore proceed rather than failing on its absence.
+              if [ ! -f "\$ENC" ]; then echo "object is not encrypted — nothing to decrypt"; exit 0; fi
+              if [ -z "\${BACKUP_PASSPHRASE:-}" ]; then
+                echo "BACKUP_PASSPHRASE is empty — has sqlserver-backup-passphrase synced?" >&2
+                exit 1
+              fi
               echo "decrypting \$(basename "\$ENC")"
               # Must match backup-cronjob.yaml's encrypt step exactly. A wrong
               # passphrase surfaces here as "bad decrypt", which reads like a
