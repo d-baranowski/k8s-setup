@@ -5,14 +5,22 @@
 # database it ran alongside (2 payer stubs, no documents) was dropped, and its
 # backups under sqlserver/platnik/ deleted with it.
 #
-# Two steps, because SQL Server can't do it in one: Express edition does not
-# support BACKUP TO URL for S3-compatible storage (Microsoft excludes Express
-# and Express with Advanced Services explicitly), so the backup goes to the
-# database volume first and a second container ships it to the bucket. Backup
-# COMPRESSION is likewise Standard+, so the dump step gzips instead — it has to
-# happen there because the aws-cli image ships no gzip.
+# Three steps, because no one image can do it: Express edition does not support
+# BACKUP TO URL for S3-compatible storage (Microsoft excludes Express and
+# Express with Advanced Services explicitly), so the backup goes to the database
+# volume first and a later container ships it to the bucket. Backup COMPRESSION
+# is likewise Standard+, so the dump step gzips instead — it has to happen there
+# because the aws-cli image ships no gzip. And encryption needs a third image
+# again: mssql-tools has OpenSSL 1.0.2g, too old for -pbkdf2, while aws-cli has
+# no openssl at all.
 #
-#   BACKUP DATABASE -> /var/opt/mssql/backup/*.bak -> gzip -> s3://
+#   BACKUP DATABASE -> /var/opt/mssql/backup/*.bak -> gzip -> openssl enc -> s3://
+#
+# The objects are encrypted client-side before they leave the cluster. The
+# bucket has SSE-S3 on top of that, but SSE-S3 is decrypted transparently for
+# anyone holding the bucket credentials — which is the threat this guards
+# against, along with AWS itself. The passphrase is in Secret Manager and
+# nowhere else; see backup-passphrase-secret.yaml for what losing it means.
 #
 # Retention lives in S3, not here: the bucket's lifecycle rule (infra/kadis,
 # module s3-backup) expires objects after 14 days and their noncurrent versions
@@ -120,7 +128,7 @@ spec:
                   # before its trap could fire. Nothing else would ever remove
                   # it, and this volume is the database's.
                   shopt -s nullglob
-                  for stale in "$BACKUP_DIR"/*.bak "$BACKUP_DIR"/*.bak.gz; do
+                  for stale in "$BACKUP_DIR"/*.bak "$BACKUP_DIR"/*.bak.gz "$BACKUP_DIR"/*.bak.gz.enc; do
                     echo "sweeping stale file: $stale ($(stat -c %s "$stale") bytes)"
                     rm -f "$stale"
                   done
@@ -142,7 +150,9 @@ spec:
                   # check is worth. What we rely on instead:
                   #   - BACKUP ... WITH CHECKSUM above, which validates every
                   #     page checksum as it reads and fails on a corrupt page
-                  #   - gzip -t below, on the exact bytes being uploaded
+                  #   - gzip -t below on the compressed stream, and then the
+                  #     encrypt step's decrypt|gzip -t on the exact bytes that
+                  #     actually get uploaded
                   #   - the periodic restore rehearsal (restore_kadis_db.sh),
                   #     which is the only check that proves recoverability
                   # If you ever want VERIFYONLY back, the narrow way is
@@ -159,6 +169,63 @@ spec:
 
                   echo "$BAK.gz" > /run/backup/path
                   ls -la "$BAK.gz"
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "1"
+                  memory: "512Mi"
+            # Encryption gets its own step because neither of the other two
+            # images can do it properly. The mssql-tools image ships OpenSSL
+            # 1.0.2g (2016), which predates -pbkdf2 and would leave us deriving
+            # the key with one pass of EVP_BytesToKey; the aws-cli image has no
+            # openssl binary at all. The SQL Server image has OpenSSL 3.0.2, is
+            # already digest-pinned in statefulset.yaml, and is already on this
+            # node because the StatefulSet runs it — so this costs no extra pull.
+            - name: encrypt
+              image: mcr.microsoft.com/mssql/server:2022-latest@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89
+              env:
+                - name: BACKUP_PASSPHRASE
+                  valueFrom:
+                    secretKeyRef:
+                      name: sqlserver-backup-passphrase
+                      key: passphrase
+              volumeMounts:
+                - name: mssql-data
+                  mountPath: /var/opt/mssql
+                - name: handoff
+                  mountPath: /run/backup
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+                  GZ="$(cat /run/backup/path)"
+                  ENC="$GZ.enc"
+
+                  # -pass env: keeps the passphrase out of argv, where anything
+                  # else on the node could read it out of /proc.
+                  echo "== encrypting $(basename "$GZ") =="
+                  openssl enc -aes-256-cbc -md sha512 -pbkdf2 -iter 600000 -salt \
+                    -pass env:BACKUP_PASSPHRASE -in "$GZ" -out "$ENC"
+
+                  # The plaintext must not outlive this step. $BACKUP_DIR is on
+                  # the *live database's* volume, so a stray .gz is both a
+                  # disclosure and a full-disk risk.
+                  rm -f "$GZ"
+
+                  # Round-trip the exact bytes that are about to be uploaded.
+                  # This replaces the old `gzip -t` and is strictly stronger: it
+                  # proves the object decrypts with the passphrase currently in
+                  # the cluster, and that the gzip CRC still passes underneath.
+                  # A backup nobody can decrypt is not a backup, and nothing
+                  # downstream of here would notice.
+                  echo "== verifying the encrypted stream round-trips =="
+                  openssl enc -d -aes-256-cbc -md sha512 -pbkdf2 -iter 600000 \
+                    -pass env:BACKUP_PASSPHRASE -in "$ENC" | gzip -t
+
+                  echo "$ENC" > /run/backup/path
+                  ls -la "$ENC"
               resources:
                 requests:
                   cpu: "50m"
@@ -201,7 +268,10 @@ spec:
 
                   # Fires on success, failure and signal alike. A missed backup
                   # is recoverable; a full database volume is an outage.
-                  trap 'rm -f "$GZ" "${GZ%.gz}"' EXIT
+                  # $GZ ends .bak.gz.enc now, so strip both suffixes — the
+                  # old "${GZ%.gz}" silently matched nothing once encryption
+                  # was added, leaving debris on the database volume.
+                  trap 'rm -f "$GZ" "${GZ%.enc}" "${GZ%.gz.enc}"' EXIT
 
                   # Reuse the dump step's filename rather than rebuilding it
                   # from the database name and timestamp. It used to be spelled

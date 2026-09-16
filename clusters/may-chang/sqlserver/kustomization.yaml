@@ -6,6 +6,7 @@ resources:
   - platnik-user-secret.yaml
   - platnik-users-secret.yaml
   - backup-secret.yaml
+  - backup-passphrase-secret.yaml
   - backup-aws-creds.yaml
   - statefulset.yaml
   - service.yaml

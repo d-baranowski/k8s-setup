@@ -4,17 +4,23 @@
 #
 # Backups are taken hourly by the platnik-backup CronJob
 # (clusters/may-chang/sqlserver/backup-cronjob.yaml) into
-#   s3://kadis-ad77fef6-backups/sqlserver/platnik/platnik_<UTC timestamp>.bak.gz
+#   s3://kadis-ad77fef6-backups/sqlserver/platnik_migracja/platnik_migracja_<UTC ts>.bak.gz.enc
 # and expire after 14 days (bucket lifecycle rule, infra/kadis).
+#
+# They are encrypted client-side with AES-256-CBC. The passphrase is the
+# sqlserver-backup-passphrase Secret, from Secret Manager; this script mounts it
+# into the restore Job the same way it mounts the SA password, so nothing
+# sensitive has to exist on the laptop. Without that passphrase the objects are
+# unrecoverable — there is no escrow and no second copy.
 #
 #   ./restore_kadis_db.sh --list                          what exists, newest first
 #   ./restore_kadis_db.sh                                 newest -> platnik_restore_<ts>
 #   ./restore_kadis_db.sh --object <key>                  a specific backup
-#   ./restore_kadis_db.sh --target-db platnik --replace   overwrite the live database
+#   ./restore_kadis_db.sh --target-db platnik_migracja --replace   overwrite the live db
 #
-# Restoring into a NEW database is the default. Overwriting the live `platnik`
-# needs --replace and a typed confirmation, because that is the one operation
-# nobody should do by accident at 2am.
+# Restoring into a NEW database is the default. Overwriting the live
+# `platnik_migracja` needs --replace and a typed confirmation, because that is
+# the one operation nobody should do by accident at 2am.
 #
 # ── MANUAL FALLBACK, if this script is broken ────────────────────────────────
 # Everything below is just automation of these steps. Run them by hand if need be.
@@ -22,10 +28,17 @@
 #   # 1. what's in the bucket (creds are in the cluster, or use your own):
 #   kubectl -n sqlserver get secret sqlserver-backup-aws-creds \
 #     -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d
-#   aws s3 ls s3://kadis-ad77fef6-backups/sqlserver/platnik/ --region eu-central-1
+#   aws s3 ls s3://kadis-ad77fef6-backups/sqlserver/platnik_migracja/ --region eu-central-1
 #
 #   # 2. get the file onto the database volume (a pod on kadis mounting
-#   #    the PVC mssql-data-sqlserver-0 at /var/opt/mssql), gunzip it, then:
+#   #    the PVC mssql-data-sqlserver-0 at /var/opt/mssql), then DECRYPT it.
+#   #    Needs OpenSSL 3 — the mssql-tools image has 1.0.2g, which has no
+#   #    -pbkdf2; use the mssql/server image, or your laptop:
+#   openssl enc -d -aes-256-cbc -md sha512 -pbkdf2 -iter 600000 \
+#     -pass env:BACKUP_PASSPHRASE -in x.bak.gz.enc -out x.bak.gz
+#   #    (BACKUP_PASSPHRASE from: gcloud secrets versions access latest \
+#   #     --secret=sqlserver-backup-passphrase --project=danb-ubuntu-k0s)
+#   #    then gunzip it, and:
 #   /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$SA" -Q \
 #     "RESTORE FILELISTONLY FROM DISK = N'/var/opt/mssql/backup/x.bak'"
 #   # note the two LogicalName values, then:
@@ -42,20 +55,27 @@ set -euo pipefail
 
 NAMESPACE="sqlserver"
 BUCKET="kadis-ad77fef6-backups"
-PREFIX="sqlserver/platnik"
+PREFIX="sqlserver/platnik_migracja"
 REGION="eu-central-1"
 PVC="mssql-data-sqlserver-0"
 NODE="kadis"
 
 AWSCLI_IMAGE="amazon/aws-cli:2.36.30@sha256:da37c08f8e00a64c09acd46e8ce5c3dd30b291046029def45566aa9ccd7b398b"
 MSSQL_IMAGE="mcr.microsoft.com/mssql-tools@sha256:62556500522072535cb3df2bb5965333dded9be47000473e9e0f84118e248642"
+# Decryption needs OpenSSL 3 for -pbkdf2. mssql-tools ships 1.0.2g (2016) and
+# aws-cli ships no openssl at all, so the decrypt step borrows the SQL Server
+# image — same digest as statefulset.yaml, already on the node. Mirrors the
+# `encrypt` initContainer in backup-cronjob.yaml; the two must stay in step.
+SERVER_IMAGE="mcr.microsoft.com/mssql/server:2022-latest@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89"
 
 OBJECT=""
 TARGET_DB=""
 REPLACE="false"
 LIST_ONLY="false"
 
-usage() { sed -n '3,25p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+# Print the header down to the MANUAL FALLBACK divider, rather than a hardcoded
+# line range — the range silently went stale the moment the header grew.
+usage() { sed -n '3,/^# ── MANUAL FALLBACK/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -165,7 +185,27 @@ spec:
               mkdir -p /var/opt/mssql/backup
               chmod 2775 /var/opt/mssql/backup
               echo "downloading s3://$BUCKET/$OBJECT"
-              aws s3 cp "s3://$BUCKET/$OBJECT" /var/opt/mssql/backup/restore_$TS.bak.gz --only-show-errors
+              aws s3 cp "s3://$BUCKET/$OBJECT" /var/opt/mssql/backup/restore_$TS.bak.gz.enc --only-show-errors
+              ls -la /var/opt/mssql/backup/restore_$TS.bak.gz.enc
+        - name: decrypt
+          image: $SERVER_IMAGE
+          env:
+            - name: BACKUP_PASSPHRASE
+              valueFrom: { secretKeyRef: { name: sqlserver-backup-passphrase, key: passphrase } }
+          volumeMounts:
+            - { name: mssql-data, mountPath: /var/opt/mssql }
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              ENC=/var/opt/mssql/backup/restore_$TS.bak.gz.enc
+              echo "decrypting \$(basename "\$ENC")"
+              # Must match backup-cronjob.yaml's encrypt step exactly. A wrong
+              # passphrase surfaces here as "bad decrypt", which reads like a
+              # corrupt download and is not one.
+              openssl enc -d -aes-256-cbc -md sha512 -pbkdf2 -iter 600000 \
+                -pass env:BACKUP_PASSPHRASE -in "\$ENC" -out /var/opt/mssql/backup/restore_$TS.bak.gz
+              rm -f "\$ENC"
               ls -la /var/opt/mssql/backup/restore_$TS.bak.gz
       containers:
         - name: restore
@@ -184,7 +224,7 @@ spec:
 
               # The .bak sits on the live database's volume, so it goes away
               # whatever happens next.
-              trap 'rm -f "\$BAK" "\$BAK.gz"' EXIT
+              trap 'rm -f "\$BAK" "\$BAK.gz" "\$BAK.gz.enc"' EXIT
 
               gunzip -f "\$BAK.gz"
               sa() { "\$SQLCMD" -S sqlserver -U sa -P "\$SA_PASSWORD" -b -x -h -1 -W "\$@"; }
