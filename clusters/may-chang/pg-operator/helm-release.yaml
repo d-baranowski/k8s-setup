@@ -20,7 +20,28 @@ spec:
   values:
     installCRDs: true
     enableJsonLogging: true
-    enable_cross_namespace_secret: true
+    # MUST be nested under configKubernetes, not set at the top level.
+    #
+    # This chart defaults to configTarget: OperatorConfigurationCRD, and
+    # templates/operatorconfiguration.yaml builds the CRD's `kubernetes:` block
+    # from `.Values.configKubernetes` and nothing else. A top-level
+    # `enable_cross_namespace_secret: true` maps to no chart key at all, and
+    # Helm does not consider an unused value an error — so it was accepted,
+    # rendered nothing, and the operator ran with the chart default of false.
+    #
+    # The failure is quiet and a long way from the cause. With the flag off, a
+    # `namespace.user` entry in cluster.yaml still creates the role — the dot
+    # just becomes part of the role name — but the credentials Secret is written
+    # into the cluster's own namespace, `default`, rather than the app's. The
+    # app then cannot start, with a CreateContainerConfigError naming a Secret
+    # that does exist, in a namespace nobody looked in.
+    #
+    # That is what kept passbolt from ever starting, and nextcloud after it.
+    # Check it in the rendered object, never in this file:
+    #   kubectl -n default get operatorconfiguration pg-operator-postgres-operator \
+    #     -o jsonpath='{.configuration.kubernetes.enable_cross_namespace_secret}'
+    configKubernetes:
+      enable_cross_namespace_secret: true
     configLogicalBackup:
       logical_backup_provider: s3
       logical_backup_s3_bucket: utro-a253e7cf-backups
