@@ -1,0 +1,107 @@
+# Settings the image's environment variables cannot express.
+#
+# configmap.yaml covers everything the entrypoint reads on first boot, but the
+# nextcloud image has no env var for default_language, default_locale or
+# default_phone_region — they exist only as occ config:system:set calls against
+# an already-installed instance. Without this Job they would live nowhere but
+# config.php on the PVC: restored by restic after a disaster, but silently lost
+# on a rebuild from empty, and invisible to anyone reading this directory.
+#
+# Idempotent by construction: config:system:set writes the same value every run
+# and is a no-op when it already matches, so this is safe under Flux's force
+# re-apply and safe to run by hand.
+#
+#   kubectl -n nextcloud create job --from=cronjob/... is NOT how to re-run this;
+#   it is a Job, so delete it and let Flux recreate it:
+#     kubectl -n nextcloud delete job nextcloud-configure
+#     flux reconcile kustomization nextcloud
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nextcloud-configure
+  namespace: nextcloud
+  labels:
+    app: nextcloud
+    component: configure
+  annotations:
+    # A Job's pod template is immutable, so changing the script below would make
+    # Flux fail to patch it. Same trick as passbolt/register-admin-job.yaml:
+    # have the kustomize-controller delete and recreate the Job instead.
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  ttlSecondsAfterFinished: 604800
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+        component: configure
+    spec:
+      restartPolicy: OnFailure
+      # Must match the Deployment: occ reads config.php from the RWO local-path
+      # volume, and two pods may mount it at once only on the same node.
+      nodeSelector:
+        kubernetes.io/hostname: kadis
+      # www-data, so occ can read and write config.php on the mounted volume.
+      securityContext:
+        fsGroup: 33
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: nextcloud-data
+      containers:
+        - name: configure
+          image: nextcloud:34.0.4-apache@sha256:8418c398d767f857eb571101e6b64b7d4b67d6b9c41611808e9c3ef9acbcc3f1
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: data
+              mountPath: /var/www/html
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+
+              echo "== waiting for the instance to be installed =="
+              # occ against a half-installed instance fails in ways that are not
+              # worth distinguishing. status.php reports installed:true only
+              # once the Deployment's entrypoint has finished its migration, so
+              # wait on that rather than on the pod being Ready — the readiness
+              # probe hits the same endpoint but does not inspect the answer.
+              for i in $(seq 1 60); do
+                if curl -fsS --max-time 5 http://nextcloud.nextcloud.svc.cluster.local/status.php \
+                     | grep -q '"installed":true'; then
+                  echo "   installed after $((i-1)) retries"
+                  break
+                fi
+                sleep 10
+              done
+              curl -fsS --max-time 5 http://nextcloud.nextcloud.svc.cluster.local/status.php \
+                | grep -q '"installed":true'
+
+              echo "== applying locale settings =="
+              # Polish throughout: interface language, date and number formats,
+              # and the region that bare national phone numbers are parsed
+              # against. default_* are the defaults for NEW users; anyone can
+              # still override their own in Settings. force_language is
+              # deliberately NOT set — it would take that choice away.
+              su -s /bin/sh -c "php occ config:system:set default_language     --value=pl"    www-data
+              su -s /bin/sh -c "php occ config:system:set default_locale       --value=pl_PL" www-data
+              su -s /bin/sh -c "php occ config:system:set default_phone_region --value=PL"    www-data
+
+              echo "== existing accounts =="
+              # default_language only applies to accounts created after it is
+              # set, so the admin created at install time keeps whatever it had.
+              # Setting it explicitly is what makes a rebuild from empty match a
+              # cluster that has been running.
+              su -s /bin/sh -c "php occ user:setting admin core lang   pl"    www-data
+              su -s /bin/sh -c "php occ user:setting admin core locale pl_PL" www-data
+
+              echo "== done =="
+              su -s /bin/sh -c "php occ config:system:get default_language" www-data
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
