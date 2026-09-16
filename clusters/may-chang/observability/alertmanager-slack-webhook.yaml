@@ -1,0 +1,34 @@
+# The Slack incoming webhook Alertmanager posts to.
+#
+# A webhook URL is bound to one channel at creation time, so the channel is a
+# property of this secret rather than of the Alertmanager config — changing
+# where alerts land means replacing the secret's value, not editing the chart.
+#
+# Create the GCP secret before merging, or Alertmanager will fail to start:
+#   gcloud secrets create alertmanager-slack-webhook-url --replication-policy=automatic
+#   printf '%s' 'https://hooks.slack.com/services/…' \
+#     | gcloud secrets versions add alertmanager-slack-webhook-url --data-file=-
+#
+# It is read from a file rather than inlined so the URL never appears in the
+# rendered HelmRelease, in Flux's diff output, or in `kubectl get helmrelease -o yaml`.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: alertmanager-slack-webhook
+  namespace: observability
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: google-secrets
+  target:
+    name: alertmanager-slack-webhook
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    # The key becomes the filename under /etc/alertmanager/secrets/<secret name>/,
+    # which is what slack_api_url_file points at.
+    - secretKey: webhook-url
+      remoteRef:
+        key: alertmanager-slack-webhook-url
+        version: latest
