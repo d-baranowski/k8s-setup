@@ -12,11 +12,32 @@
 # explicitly rather than leaving that implied.
 #
 # 100Gi is ADVISORY AND NOT ENFORCED. local-path is a bind mount on the node's
-# root filesystem, so this number reserves nothing and stops nothing: Nextcloud
-# can fill kadis's disk and take the Płatnik SQL Server down with it, which is
-# the actual risk here and why alerts.yaml watches the node filesystem rather
-# than this claim. At the time of writing kadis had 292Gi free of 467Gi, with
-# SQL Server occupying roughly 130Gi against its own declared 20Gi.
+# root filesystem, so this number reserves nothing and stops nothing. That is
+# why alerts.yaml watches the node filesystem rather than this claim.
+#
+# What it is competing with is NOT the database. Measured 2026-09-16, the whole
+# Płatnik SQL Server volume is 641Mi — platnik_migracja.mdf is 128Mi and the
+# backup directory is empty, because the backup CronJob's cleanup trap works.
+# Its 20Gi request is generous, not overrun.
+#
+# The contended tenant is Jenkins. kadis is a build agent as well as a k3s node
+# (nixos-servers/hosts/kadis/configuration.nix), and its resourceLimits bound
+# CPU and memory but deliberately not disk. Measured on the node 2026-09-16,
+# against 467Gi total and 292Gi free:
+#
+#   44G  /var/lib/docker          build images, buildx cache, e2e volumes
+#   32G  /var/lib/rancher/k3s     containerd images and local-path volumes
+#   17G  /nix/store
+#
+# Docker's storage sits outside k3s's containerd, so none of those 44G appear
+# in the kubelet's imageFs — which is why this looked like a mystery from
+# inside the cluster. Retention there is age-based (`docker system prune -af
+# --filter until=168h`, daily) and modules/docker-e2e-cleanup.nix concedes the
+# age filter is not what actually bounds it. Jenkins workspaces under
+# /var/lib/jenkins are pruned only weekly, on a 14-day atime window.
+#
+# So the failure mode to design against is a build agent filling the disk under
+# Nextcloud, not Nextcloud crowding out a 641Mi database.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
