@@ -58,6 +58,13 @@ variable "firebase_authorized_domains" {
     "localhost",
     "customer.inspi.cloud",
     "app.inspiration-particle.com",
+    # Brokuł's app host. It is listed HERE, in utro's stack, because
+    # google_identity_platform_config is a project singleton and this stack owns
+    # it: brokul/infra/terraform deliberately does not declare the resource, so
+    # it has no way to add its own domain. Two stacks declaring it do not error —
+    # each apply silently overwrites the other's authorized_domains, and the
+    # symptom is "sign-in worked yesterday" with no diff anywhere to explain it.
+    "brokul.inspiration-particle.com",
   ]
 }
 
