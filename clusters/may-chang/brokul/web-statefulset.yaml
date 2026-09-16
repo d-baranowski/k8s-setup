@@ -31,7 +31,16 @@ spec:
         - name: ghcr-pull-secret
       containers:
       - name: web
-        image: ghcr.io/inspiration-particle/brokul-web:0.1.0-prod
+        # 0.1.1-prod. 0.1.0-prod was built with the API URL deleted on its way
+        # into `next build` — app/web's `build` script starts with
+        # `env -u NEXT_PUBLIC_API_URL`, so the build arg release.sh passes never
+        # reached the compiler and the bundle inlined connect.ts's dev fallback.
+        # The deployed app asked the browser for http://localhost:3100/api/rpc
+        # and every screen failed to fetch on a site that was otherwise up.
+        #
+        # NEXT_PUBLIC_* are baked into the JavaScript, so this cannot be fixed
+        # with an env var here — it takes a rebuild, and therefore a new tag.
+        image: ghcr.io/inspiration-particle/brokul-web:0.1.1-prod
         ports:
         - containerPort: 3000
           name: http
