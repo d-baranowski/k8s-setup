@@ -1,0 +1,44 @@
+# Kernel networking for the operator's proxies, instead of userspace netstack.
+#
+# WHY THIS EXISTS, measured on 2026-09-16 with a 5.6MB Nextcloud JS bundle:
+#
+#   nextcloud pod, localhost                      5.6MB in     1.6ms
+#   cross-node pod -> Service (through the CNI)   5.6MB in      96ms
+#   kube API over the tailnet, no ingress proxy   1.8MB in     335ms  (5.4MB/s)
+#   the same bundle through a Tailscale Ingress          ~19KB/s
+#
+# Roughly 290x slower, and it is the proxy alone: the LAN is 3.3ms with no loss,
+# tailnet RTT is 4ms and direct, the CNI is fast, the tunnel MTU is a normal
+# 1280, the proxy pod sits at 35m CPU with no limit and nr_throttled 0, and the
+# rate is identical at 1, 4, 8, 16 and 32 concurrent connections. Nothing is
+# saturated; the transfer simply trickles.
+#
+# The cause is that the operator builds its proxies with TS_USERSPACE=true and
+# no /dev/net/tun, so every packet is copied through netstack in userspace.
+# Small responses hide it — a 170B status.php answers in 0.45s and an 18KB login
+# page in 1.4s, so everything looked healthy until something large was asked
+# for. A Nextcloud page is ~50 requests including multi-megabyte bundles, which
+# is why the dashboard took 59 SECONDS and most assets never arrived at all.
+#
+# Granting NET_ADMIN lets tailscaled create a TUN device and use the kernel's
+# WireGuard path instead. That IS a real privilege increase on the proxy pods,
+# and it is deliberate: NET_ADMIN is what the kernel requires to bring up an
+# interface and program routes, it is scoped to the tailscale namespace, and it
+# is the way the operator documents running in kernel mode. The alternative is a
+# file server nobody can use.
+#
+# This applies to every proxy, not only nextcloud: passbolt, open-seo,
+# mattermost and grafana all run through the same userspace path today.
+# proxyConfig.defaultProxyClass in helm-release.yaml is what attaches it.
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyClass
+metadata:
+  name: kernel-networking
+spec:
+  statefulSet:
+    pod:
+      tailscaleContainer:
+        securityContext:
+          capabilities:
+            add:
+              - NET_ADMIN

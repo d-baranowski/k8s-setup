@@ -16,6 +16,17 @@ spec:
   values:
     operatorConfig:
       hostname: may-chang-ts-operator
+    proxyConfig:
+      # Every proxy the operator creates gets kernel networking rather than the
+      # default userspace netstack. See proxyclass-kernel.yaml for the
+      # measurements — userspace netstack moved ~19KB/s, against 5.4MB/s for the
+      # same tailnet with no proxy in the path.
+      #
+      # Set as the DEFAULT rather than annotating one Ingress, because every
+      # proxy here has the same problem; nextcloud is only where it became
+      # impossible to ignore. Applying it per-Ingress would leave the next
+      # person to rediscover this from scratch.
+      defaultProxyClass: kernel-networking
     oauth: {}
   valuesFrom:
     - kind: Secret

@@ -4,4 +4,8 @@ resources:
   - namespace.yaml
   - helm-repo.yaml
   - oauth-secret.yaml
+  # Before the HelmRelease: proxyConfig.defaultProxyClass names this ProxyClass,
+  # and the operator logs a warning and falls back to userspace networking if it
+  # reconciles a proxy before the object exists.
+  - proxyclass-kernel.yaml
   - helm-release.yaml
