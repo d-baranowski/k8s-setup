@@ -1,35 +1,43 @@
-# Kernel networking for the operator's proxies, instead of userspace netstack.
+# Tunnel MTU for the operator's proxies.
 #
-# WHY THIS EXISTS, measured on 2026-09-16 with a 5.6MB Nextcloud JS bundle:
+# THE ONE LINE THAT MATTERS is TS_DEBUG_MTU below. Without it every proxy in
+# this cluster moves data at dial-up speeds, and it is close to invisible: small
+# responses are fine, so health checks pass, dashboards look green, and only
+# something large ever reveals it.
 #
-#   nextcloud pod, localhost                      5.6MB in     1.6ms
-#   cross-node pod -> Service (through the CNI)   5.6MB in      96ms
-#   kube API over the tailnet, no ingress proxy   1.8MB in     335ms  (5.4MB/s)
-#   the same bundle through a Tailscale Ingress          ~19KB/s
+# The cause is an MTU inversion inside the proxy pod:
 #
-# Roughly 290x slower, and it is the proxy alone: the LAN is 3.3ms with no loss,
-# tailnet RTT is 4ms and direct, the CNI is fast, the tunnel MTU is a normal
-# 1280, the proxy pod sits at 35m CPU with no limit and nr_throttled 0, and the
-# rate is identical at 1, 4, 8, 16 and 32 concurrent connections. Nothing is
-# saturated; the transfer simply trickles.
+#   pod eth0     1230   (this cluster's CNI)
+#   tailscale0   1280   (tailscaled's default)
 #
-# The cause is that the operator builds its proxies with TS_USERSPACE=true and
-# no /dev/net/tun, so every packet is copied through netstack in userspace.
-# Small responses hide it — a 170B status.php answers in 0.45s and an 18KB login
-# page in 1.4s, so everything looked healthy until something large was asked
-# for. A Nextcloud page is ~50 requests including multi-megabyte bundles, which
-# is why the dashboard took 59 SECONDS and most assets never arrived at all.
+# The tunnel interface is LARGER than the interface its packets must leave
+# through, so every full-size packet needs fragmenting. On a node this never
+# happens — host eth0 is 1500, comfortably above 1280 — which is why the same
+# tailnet is fast between hosts and crawls through a proxy. 1150 leaves room for
+# WireGuard's ~60-80 bytes of overhead inside 1230.
 #
-# Granting NET_ADMIN lets tailscaled create a TUN device and use the kernel's
-# WireGuard path instead. That IS a real privilege increase on the proxy pods,
-# and it is deliberate: NET_ADMIN is what the kernel requires to bring up an
-# interface and program routes, it is scoped to the tailscale namespace, and it
-# is the way the operator documents running in kernel mode. The alternative is a
-# file server nobody can use.
+# Measured 2026-09-16 with the same 5.6MB Nextcloud bundle, before and after:
 #
-# This applies to every proxy, not only nextcloud: passbolt, open-seo,
-# mattermost and grafana all run through the same userspace path today.
-# proxyConfig.defaultProxyClass in helm-release.yaml is what attaches it.
+#   Ingress proxy        19KB/s  ->  47MB/s    (~2500x)
+#   LoadBalancer proxy  300KB/s  ->  51MB/s     (~170x)
+#   host tailscaled, for reference, 3.6MB/s
+#
+# Nextcloud was only the symptom: its dashboard is ~50 requests including
+# multi-megabyte bundles, and it took 59 SECONDS with most assets never
+# arriving. passbolt, open-seo, mattermost, grafana and the sqlserver
+# LoadBalancer were all equally affected and nobody had noticed, because none of
+# them routinely moves anything big.
+#
+# NOT NET_ADMIN. The first version of this file granted that capability, on the
+# theory that the proxies needed kernel networking. That was wrong twice over:
+# the operator hard-codes TS_USERSPACE=true for Ingress proxies so the
+# capability changes nothing there, and it already grants NET_ADMIN itself for
+# LoadBalancer proxies, so it was redundant there too. The measurements settle
+# it — an Ingress proxy still running userspace netstack does 47MB/s once the
+# MTU is right. Removed rather than left as a privilege nothing uses.
+#
+# If the CNI MTU ever changes, this has to change with it:
+#   kubectl -n tailscale exec <proxy-pod> -- cat /sys/class/net/eth0/mtu
 apiVersion: tailscale.com/v1alpha1
 kind: ProxyClass
 metadata:
@@ -38,7 +46,6 @@ spec:
   statefulSet:
     pod:
       tailscaleContainer:
-        securityContext:
-          capabilities:
-            add:
-              - NET_ADMIN
+        env:
+          - name: TS_DEBUG_MTU
+            value: "1150"
