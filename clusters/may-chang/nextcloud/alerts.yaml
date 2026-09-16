@@ -1,0 +1,135 @@
+# Alerts for nextcloud.
+#
+# Prometheus discovers PrometheusRules in every namespace
+# (ruleSelectorNilUsesHelmValues: false plus an empty ruleNamespaceSelector in
+# observability/helmrelease-kube-prometheus-stack.yaml), so these live next to
+# the workload they describe — same reasoning as passbolt/alerts.yaml.
+#
+# Nextcloud exposes a serverinfo metrics endpoint, but it needs a token and
+# nothing scrapes it, so everything below is built from what the platform
+# collects for any pod. Nothing here can tell you whether a sync client is
+# failing or whether previews are being generated — only that the process is
+# alive, fed, and not about to run out of disk.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: nextcloud-alerts
+  namespace: nextcloud
+  labels:
+    app: nextcloud
+    component: alerts
+spec:
+  groups:
+    - name: nextcloud
+      rules:
+        - alert: NextcloudDown
+          expr: >-
+            kube_deployment_status_replicas_available{namespace="nextcloud", deployment="nextcloud"} < 1
+            and kube_deployment_spec_replicas{namespace="nextcloud", deployment="nextcloud"} > 0
+          for: 10m
+          labels:
+            severity: warning
+            service: nextcloud
+          annotations:
+            summary: "Nextcloud has no available replica"
+            description: >-
+              Nothing is serving nextcloud.folk-saiph.ts.net. The usual cause is
+              the database: the pod waits for pg-op-cluster before it starts and
+              runs its schema migration before Apache comes up. Check
+              `kubectl -n nextcloud logs deploy/nextcloud -c nextcloud`, then the
+              cluster in `default`.
+            # Warning rather than critical, unlike passbolt: files being
+            # unreachable for a while is an inconvenience, where passbolt being
+            # down blocks logging into everything else.
+
+        - alert: NextcloudRestartLoop
+          expr: increase(kube_pod_container_status_restarts_total{namespace="nextcloud", container="nextcloud"}[1h]) > 3
+          for: 10m
+          labels:
+            severity: warning
+            service: nextcloud
+          annotations:
+            summary: "Nextcloud restarted {{ $value | humanize }} times in the last hour"
+            description: >-
+              Every restart re-runs the upgrade check against the database, so a
+              loop is more than cosmetic — an interrupted migration can leave
+              the instance in maintenance mode. Check
+              `kubectl -n nextcloud describe pod -l app=nextcloud` for the exit
+              reason, and `occ maintenance:mode` if it is stuck.
+
+        # THE ONE THAT MATTERS. Deliberately the node filesystem and not
+        # kubelet_volume_stats_available_bytes: nextcloud-data is a local-path
+        # volume, and the kubelet reports those by echoing the host filesystem —
+        # mssql-data on this same node reports used=151Gi cap=467Gi, which are
+        # the node's numbers, not the volume's. A PVC-based rule would therefore
+        # be measuring the wrong thing while looking like it worked.
+        #
+        # The node is also the honest unit of risk. Nextcloud's 100Gi request
+        # reserves nothing, and kadis's disk is shared with the Płatnik SQL
+        # Server holding filed ZUS data — filling it takes that down too.
+        #
+        # The join exists because node-exporter here carries only an `instance`
+        # label, which is kadis's Tailscale IP. Selecting on it directly would
+        # hardcode an address that changes without warning and leave a rule that
+        # silently matches nothing.
+        - alert: KadisDiskLow
+          expr: >-
+            node_filesystem_avail_bytes{mountpoint="/"}
+            * on(instance) group_left(nodename) node_uname_info{nodename="kadis"}
+            < 50e9
+          for: 30m
+          labels:
+            severity: critical
+            service: nextcloud
+          annotations:
+            summary: "kadis has less than 50GB free"
+            description: >-
+              {{ $value | humanize1024 }}B free on kadis. This is shared between
+              Nextcloud's files, the Płatnik SQL Server database and the node's
+              own /nix/store — local-path enforces no quota on any of them, so
+              whichever fills it takes the others down. Find the culprit with
+              `sudo du -sh /var/lib/rancher/k3s/storage/*` on the node.
+
+        - alert: NextcloudBackupStale
+          expr: >-
+            time() - kube_cronjob_status_last_successful_time{namespace="nextcloud", cronjob="nextcloud-backup"} > 172800
+          for: 1h
+          labels:
+            severity: warning
+            service: nextcloud
+          annotations:
+            summary: "Nextcloud has not backed up successfully in 48 hours"
+            description: >-
+              `kubectl -n nextcloud get jobs` and the logs of the most recent.
+              A stuck restic repository lock from a killed run is the usual
+              cause: `restic unlock` clears it.
+
+        # If the CronJob is deleted or suspended its metric disappears entirely,
+        # and the `time() - metric` comparison above silently stops evaluating —
+        # the alert goes quiet exactly when there is most to say. Same guard as
+        # sqlserver/alerts.yaml.
+        - alert: NextcloudBackupMissing
+          expr: absent(kube_cronjob_status_last_successful_time{namespace="nextcloud", cronjob="nextcloud-backup"})
+          for: 1h
+          labels:
+            severity: warning
+            service: nextcloud
+          annotations:
+            summary: "The Nextcloud backup CronJob has no successful run on record"
+            description: >-
+              Either it has never succeeded, or the CronJob has been suspended
+              or deleted. Expected briefly after first deploy, until 01:30
+              Europe/Warsaw comes around.
+
+        - alert: NextcloudJobFailed
+          expr: kube_job_failed{namespace="nextcloud", condition="true"} > 0
+          for: 15m
+          labels:
+            severity: warning
+            service: nextcloud
+          annotations:
+            summary: "A nextcloud Job has failed"
+            description: >-
+              `kubectl -n nextcloud get jobs` to see which, then its logs. If it
+              is a nextcloud-backup run, the files and the database are not
+              being captured and the gap grows every night it stays broken.

@@ -24,3 +24,4 @@ resources:
 - open-seo-kustomization.yaml
 - passbolt-kustomization.yaml
 - brokul-kustomization.yaml
+- nextcloud-kustomization.yaml

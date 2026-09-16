@@ -1,0 +1,206 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+  labels: &labels
+    app: nextcloud
+    component: deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels: *labels
+  # Recreate, not RollingUpdate: nextcloud-data is a ReadWriteOnce local-path
+  # volume, so a second pod could only ever attach it on the same node and the
+  # rollout would otherwise sit waiting for a Ready replica that cannot start.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      # nextcloud-data is a local-path RWO volume, so its PV takes a hard
+      # nodeAffinity on whichever node first binds it. Stated here rather than
+      # left implied by the PV, the way sqlserver/statefulset.yaml does it.
+      #
+      # kadis is the choice because it is the only node with the disk: 12 CPU,
+      # 30Gi RAM and 467Gi against may-chang's 4/16/463 and xiao-mei's 4/8/224.
+      # Moving this off kadis later is a copy of the volume, not an edit.
+      nodeSelector:
+        kubernetes.io/hostname: kadis
+      # www-data in the Debian base. The entrypoint unpacks the release into the
+      # volume and runs occ as www-data, so the mount has to be group-writable
+      # for it — otherwise first boot fails partway through the install with the
+      # volume already half populated, which is worse than failing cleanly.
+      securityContext:
+        fsGroup: 33
+      terminationGracePeriodSeconds: 60
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: nextcloud-data
+      initContainers:
+        # Block until Postgres answers. Passbolt does this with the wait-for.sh
+        # its own image happens to ship; the Nextcloud image ships neither that
+        # nor netcat, so rather than assume a tool is present this reuses the
+        # Postgres image already pinned for the backup job — pg_isready is a
+        # better check than a TCP connect anyway, because it distinguishes a
+        # listening socket from a server actually ready for queries.
+        #
+        # Without this, a pod starting while Postgres is restarting fails its
+        # install/upgrade step and burns CrashLoopBackOff for no reason.
+        - name: wait-for-postgres
+          image: postgres:15-alpine@sha256:fe0737ba566a2c5b2a28f34433c0a423261900ec17b9bf7ad115e1aae7e57f1b
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              until pg_isready -h pg-op-cluster.default.svc.cluster.local -p 5432 -q; do
+                echo "waiting for pg-op-cluster"
+                sleep 2
+              done
+              echo "postgres is ready"
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "32Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+      containers:
+        - name: nextcloud
+          # Nextcloud Hub, 34.0.4 on the Apache variant, resolved 2026-09-16.
+          # Never :latest or a bare major — Nextcloud runs its schema migration
+          # on startup, and it does not support skipping a major version. An
+          # unpinned tag turns an unrelated pod restart into an unplanned and
+          # possibly unskippable upgrade.
+          image: nextcloud:34.0.4-apache@sha256:8418c398d767f857eb571101e6b64b7d4b67d6b9c41611808e9c3ef9acbcc3f1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: nextcloud-config
+          env:
+            # Both from the secret the Postgres operator generates for
+            # `nextcloud.nextcloud_user`. The name is the operator's own format,
+            # `{namespace}.{username}.{cluster}.credentials...`, with underscores
+            # in the username rendered as dashes. If the pod cannot start
+            # because this secret is missing, check the operator got as far as
+            # creating it: `kubectl -n nextcloud get secrets`.
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud.nextcloud-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud.nextcloud-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+                  key: password
+            - name: NEXTCLOUD_ADMIN_USER
+              value: "admin"
+            - name: NEXTCLOUD_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-admin
+                  key: password
+            - name: REDIS_HOST_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-redis
+                  key: password
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-smtp
+                  key: password
+          volumeMounts:
+            - name: data
+              mountPath: /var/www/html
+          # /status.php is unauthenticated and returns the installed/maintenance
+          # state as JSON. It touches config.php and the database, so unlike
+          # passbolt's shallow check this one DOES fail when Postgres is down —
+          # which is why the liveness timings below are slack enough that a brief
+          # database blip cannot restart the container into a boot needing it.
+          #
+          # Ten minutes of startup budget covers unpacking the release into an
+          # empty volume and running the first install, which is by far the
+          # slowest thing this pod ever does.
+          startupProbe:
+            httpGet:
+              path: /status.php
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /status.php
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /status.php
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Apache with mod_php serving a handful of users and their sync
+          # clients. A first estimate rather than a measurement: revisit from
+          # container_memory_max_usage_bytes in Prometheus once there is a week
+          # of real use, never from a `kubectl top` sample. The memory limit is
+          # deliberately double PHP_MEMORY_LIMIT, since that ceiling is per
+          # request and several can be in flight at once.
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+        # Nextcloud's background jobs — expiring shares and trash, sending
+        # digests, building previews. The image ships /cron.sh for exactly this;
+        # the alternative, Nextcloud's AJAX cron, only runs while somebody has a
+        # browser tab open and silently stops being a scheduler the moment
+        # nobody does.
+        #
+        # Sharing the pod rather than living in a CronJob is what lets it share
+        # the RWO volume: a separate pod could only mount it on this same node
+        # anyway, and this way it cannot drift onto another one.
+        - name: cron
+          image: nextcloud:34.0.4-apache@sha256:8418c398d767f857eb571101e6b64b7d4b67d6b9c41611808e9c3ef9acbcc3f1
+          imagePullPolicy: IfNotPresent
+          command: ["/cron.sh"]
+          envFrom:
+            - configMapRef:
+                name: nextcloud-config
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud.nextcloud-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud.nextcloud-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+                  key: password
+            - name: REDIS_HOST_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-redis
+                  key: password
+          volumeMounts:
+            - name: data
+              mountPath: /var/www/html
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"

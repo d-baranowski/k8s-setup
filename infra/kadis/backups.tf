@@ -45,6 +45,33 @@ module "s3_backup" {
       expiration_days                 = 14
       noncurrent_version_days         = 7
       abort_incomplete_multipart_days = 7
+    },
+    # Nextcloud, and NOTE THE MISSING expiration_days — its absence is the whole
+    # point of this rule, not an oversight.
+    #
+    # This prefix holds a restic repository, not independent dumps. restic
+    # deduplicates by content, so one pack file is referenced by however many
+    # snapshots happen to contain those bytes, and nothing in the object's age
+    # or key says which. Expiring by age would delete data that current
+    # snapshots still point at — and restic would not notice until somebody
+    # tried to restore, which is the worst possible moment to find out.
+    #
+    # So retention here is `restic forget --prune`, in
+    # clusters/may-chang/nextcloud/backup-cronjob.yaml, which is the only thing
+    # that can know what is still referenced. That deliberately contradicts the
+    # note above about retention belonging in S3 rather than in the job: that
+    # reasoning is right for the Płatnik .bak files, where every object stands
+    # alone, and wrong for a deduplicating repository.
+    #
+    # The rule still exists because an uncovered prefix gets no lifecycle at
+    # all, and incomplete multipart uploads would then accumulate billed and
+    # invisible. noncurrent_version_days cleans up after restic's own deletes,
+    # since the bucket is versioned.
+    {
+      id                              = "nextcloud-restic"
+      prefix                          = "nextcloud/"
+      noncurrent_version_days         = 7
+      abort_incomplete_multipart_days = 7
     }
   ]
 }
