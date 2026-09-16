@@ -29,14 +29,19 @@ spec:
         - name: ghcr-pull-secret
       containers:
       - name: core
-        # 0.1.1 carries the first-login bootstrap: a migration that seeds the
+        # 0.1.2 drops the RETURNING clause from the provisioning insert. Postgres
+        # applies SELECT policies to a RETURNING projection, and a new customer
+        # cannot read core.user — so the row was written and then refused on the
+        # way back out, with the same error text a WITH CHECK violation gives.
+        #
+        # 0.1.1 carried the first-login bootstrap: a migration that seeds the
         # customer role on a database that has never had a user, and an insert
         # policy that lets an identity create its own core.user row. Before it,
         # the first sign-in on an empty database died on "new row violates
         # row-level security policy" — a hole that exists only where the app
         # connects as a role RLS applies to, which is nowhere in development,
         # where DB_USER defaults to the postgres superuser.
-        image: ghcr.io/inspiration-particle/brokul-core:0.1.1
+        image: ghcr.io/inspiration-particle/brokul-core:0.1.2
         ports:
         - containerPort: 9102
           name: api
@@ -54,7 +59,7 @@ spec:
         - name: SERVICE_ENV
           value: "prod"
         - name: SERVICE_VERSION
-          value: "0.1.1"
+          value: "0.1.2"
         - name: LOG_LEVEL
           value: "info"
         - name: TR_ENABLED
