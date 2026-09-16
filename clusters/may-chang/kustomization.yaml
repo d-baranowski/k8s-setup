@@ -1,7 +1,25 @@
+# The root sweep. Flux's bootstrap Kustomization applies this path, and one entry
+# here failing to build fails ALL of it — including flux-system below, which is
+# where every app's own Kustomization is declared. A single leaf app's broken
+# kustomization therefore freezes every root-level change, cluster-wide.
+#
+# That is not hypothetical. On 2026-09-16 brokul listed two ExternalSecret
+# manifests that brokul/infra/terraform had not generated yet, and passbolt —
+# merged in the same PR, wired up correctly, its secrets already in Secret
+# Manager — never deployed at all, because flux-system was never applied.
+#
+# So an app belongs here ONLY if it has no Kustomization of its own. Everything
+# added since (passbolt, open-seo, sqlserver, mattermost, kadis, utr-staging,
+# observability-resources) is registered solely through
+# flux-system/<app>-kustomization.yaml, where a build failure is still loud but
+# stays scoped to that app.
+#
+# n8n, utro, pg-operator and observability are still double-registered — listed
+# here AND owning a Kustomization — and carry the same blast radius. Unpicking
+# them is safe but is a change per app, not a change to this list.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - brokul
   - cert-manager
   - coredns
   - external-secrets-operator
