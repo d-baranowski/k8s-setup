@@ -29,10 +29,19 @@ module "s3_backup" {
   # Retention for the hourly Płatnik SQL Server backups. Versioning is on, so
   # noncurrent_version_days is what actually reclaims the space when an object
   # is expired or overwritten — without it, "deleted" backups linger forever.
+  #
+  # The prefix must track the database name in backup-cronjob.yaml. It is a
+  # literal string match, so "sqlserver/platnik/" does NOT cover
+  # "sqlserver/platnik_migracja/" — the trailing slash stops it. Changing the
+  # database without changing this here means the new backups match no rule at
+  # all and accumulate forever, silently and at cost.
+  #
+  # sqlserver/migracja/ is deliberately uncovered: it holds the migration
+  # source and the pre-migration backup, which must not expire.
   lifecycle_rules = [
     {
       id                              = "platnik-backups"
-      prefix                          = "sqlserver/platnik/"
+      prefix                          = "sqlserver/platnik_migracja/"
       expiration_days                 = 14
       noncurrent_version_days         = 7
       abort_incomplete_multipart_days = 7
