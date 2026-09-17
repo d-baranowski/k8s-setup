@@ -40,7 +40,7 @@ spec:
         # row-level security policy" — a hole that exists only where the app
         # connects as a role RLS applies to, which is nowhere in development,
         # where DB_USER defaults to the postgres superuser.
-        image: ghcr.io/inspiration-particle/brokul-core:0.1.10
+        image: ghcr.io/inspiration-particle/brokul-core:0.1.11
         env:
         - name: MIGRATE
           value: "true"
@@ -51,7 +51,7 @@ spec:
         - name: SERVICE_ENV
           value: "prod"
         - name: SERVICE_VERSION
-          value: "0.1.10"
+          value: "0.1.11"
         - name: LOG_LEVEL
           value: "info"
         - name: TR_ENABLED
