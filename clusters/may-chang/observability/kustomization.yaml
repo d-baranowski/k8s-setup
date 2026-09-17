@@ -25,6 +25,8 @@ resources:
   #     -o jsonpath='{.data.GF_SECURITY_ADMIN_PASSWORD}' | base64 -d
   - loki-s3-credentials.yaml
   - tempo-s3-credentials.yaml
+  # The Slack webhook Alertmanager posts to; see the file for why it is a secret.
+  - alertmanager-slack-webhook.yaml
   # Helm repos
   - helmrepo-prometheus-community.yaml
   - helmrepo-grafana.yaml

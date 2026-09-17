@@ -72,6 +72,11 @@ spec:
       enabled: true
       alertmanagerSpec:
         retention: 240h
+        # Mounted at /etc/alertmanager/secrets/alertmanager-slack-webhook/, which is
+        # where slack_api_url_file below reads it from. Provisioned by
+        # alertmanager-slack-webhook.yaml; Alertmanager will not start without it.
+        secrets:
+          - alertmanager-slack-webhook
         storage:
           volumeClaimTemplate:
             spec:
@@ -79,6 +84,60 @@ spec:
               resources:
                 requests:
                   storage: 5Gi
+
+      # Until this existed every alert fired into a receiver that discarded it.
+      # KubeJobFailed had been holding for utr-staging-payment-migrate — a migration
+      # that had not applied since June, leaving the payment worker erroring every
+      # two seconds while reporting healthy — and nobody was told. The rules were
+      # never the problem; there was nowhere for them to go.
+      config:
+        global:
+          resolve_timeout: 5m
+          # From a file, so the URL stays out of the rendered HelmRelease and out of
+          # `kubectl get helmrelease -o yaml`.
+          slack_api_url_file: /etc/alertmanager/secrets/alertmanager-slack-webhook/webhook-url
+
+        route:
+          # By alertname and namespace: one failing StatefulSet produces an alert per
+          # pod, and grouping collapses those into a single message that grows rather
+          # than five that scroll.
+          group_by: ["alertname", "namespace"]
+          group_wait: 30s
+          group_interval: 5m
+          # Long enough that a problem nobody has fixed does not become wallpaper,
+          # short enough that it is still visible the next morning.
+          repeat_interval: 12h
+          receiver: slack
+          routes:
+            # Watchdog fires constantly and on purpose — it is the heartbeat proving
+            # the alerting path itself is alive. Posting it would bury everything else.
+            - matchers:
+                - alertname = "Watchdog"
+              receiver: "null"
+
+        receivers:
+          - name: "null"
+
+          - name: slack
+            slack_configs:
+              # channel is a property of the webhook, not of this config; it is set
+              # here only because Alertmanager requires the field.
+              - channel: "#alerts"
+                send_resolved: true
+                title: >-
+                  {{ .Status | toUpper }}{{ if eq .Status "firing" }} ({{ .Alerts.Firing | len }}){{ end }}
+                  {{ .CommonLabels.alertname }}
+                  {{ with .CommonLabels.namespace }}· {{ . }}{{ end }}
+                text: >-
+                  {{ range .Alerts -}}
+                  *{{ .Labels.severity | toUpper }}* {{ .Annotations.summary }}
+                  {{ with .Annotations.description }}{{ . }}
+                  {{ end }}
+                  {{ with .Labels.pod }}pod: `{{ . }}`  {{ end }}
+                  {{- with .Labels.job_name }}job: `{{ . }}`  {{ end }}
+                  {{- with .Labels.statefulset }}statefulset: `{{ . }}`{{ end }}
+                  {{ with .Annotations.runbook_url }}<{{ . }}|runbook>{{ end }}
+                  {{ end }}
 
     kube-state-metrics:
       enabled: true
