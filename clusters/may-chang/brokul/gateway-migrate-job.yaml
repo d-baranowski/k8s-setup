@@ -1,0 +1,79 @@
+# The gateway's schema (rate limiting), as a one-shot Job.
+#
+# Missing for the same reason the assets one was: compose runs a migrator per
+# service and this directory only ever had core's. Nothing had read the table
+# yet, so nothing had failed — which is the least useful moment to discover it.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: brokul-gateway-migrate
+  namespace: brokul
+  labels:
+    app: brokul-gateway-migrate
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  # Successes clean themselves up after a day; failures stay put, because a
+  # failed migration is the thing you most want to still be able to read.
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: brokul-gateway-migrate
+    spec:
+      restartPolicy: OnFailure
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      containers:
+      - name: migrate
+        # 0.1.1 carries the first-login bootstrap: a migration that seeds the
+        # customer role on a database that has never had a user, and an insert
+        # policy that lets an identity create its own core.user row. Before it,
+        # the first sign-in on an empty database died on "new row violates
+        # row-level security policy" — a hole that exists only where the app
+        # connects as a role RLS applies to, which is nowhere in development,
+        # where DB_USER defaults to the postgres superuser.
+        image: ghcr.io/inspiration-particle/brokul-gateway:0.1.1
+        env:
+        - name: MIGRATE
+          value: "true"
+        - name: SERVICE_NAME
+          value: "brokul.gateway"
+        - name: TIMEZONE
+          value: "Europe/Warsaw"
+        - name: SERVICE_ENV
+          value: "prod"
+        - name: SERVICE_VERSION
+          value: "0.1.1"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: TR_ENABLED
+          value: "true"
+        - name: TR_ENDPOINT
+          value: "otel-collector.observability.svc.cluster.local:4318"
+        - name: TR_HTTPS
+          value: "false"
+        - name: DB_HOST
+          value: "pg-op-cluster.default.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "brokul"
+        - name: DB_SSL
+          value: "true"
+        # The operator generates this Secret. The `brokul.` prefix on the role
+        # name is what puts it in THIS namespace rather than in `default` —
+        # enable_cross_namespace_secret in the operator's helm values, the same
+        # notation passbolt uses. The price is that the prefix is part of the
+        # Postgres role name, so the role really is called "brokul.brokul_user".
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: brokul.brokul-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: brokul.brokul-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: password

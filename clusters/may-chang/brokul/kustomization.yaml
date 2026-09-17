@@ -25,7 +25,9 @@ resources:
   - core-migrate-job.yaml
   - gateway-statefulset.yaml
   - gateway-service.yaml
+  - gateway-migrate-job.yaml
   - assets-statefulset.yaml
+  - assets-migrate-job.yaml
   - assets-service.yaml
   - web-statefulset.yaml
   - web-service.yaml
