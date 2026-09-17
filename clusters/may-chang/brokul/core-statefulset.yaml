@@ -29,7 +29,13 @@ spec:
         - name: ghcr-pull-secret
       containers:
       - name: core
-        # 0.1.3 gives a self-provisioned account its permissions, and stops it
+        # 0.1.4 lets provisioning FIND the account it created. The opening
+        # lookup is `where external_id = $1`, RLS applies to it, and the session
+        # has no identity yet — so it saw nothing, inserted again, and collided
+        # with its own row on every request. It now asserts the Firebase uid the
+        # gateway verified, and the policy admits exactly that row.
+        #
+        # 0.1.3 gave a self-provisioned account its permissions, and stops it
         # deleting everybody else's — the permission refresh is SECURITY INVOKER
         # over two FORCE-RLS tables, so it saw nothing and its unscoped prune
         # emptied core.user_permission for every user on the system.
@@ -46,7 +52,7 @@ spec:
         # row-level security policy" — a hole that exists only where the app
         # connects as a role RLS applies to, which is nowhere in development,
         # where DB_USER defaults to the postgres superuser.
-        image: ghcr.io/inspiration-particle/brokul-core:0.1.3
+        image: ghcr.io/inspiration-particle/brokul-core:0.1.4
         ports:
         - containerPort: 9102
           name: api
@@ -64,7 +70,7 @@ spec:
         - name: SERVICE_ENV
           value: "prod"
         - name: SERVICE_VERSION
-          value: "0.1.3"
+          value: "0.1.4"
         - name: LOG_LEVEL
           value: "info"
         - name: TR_ENABLED
