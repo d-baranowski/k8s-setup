@@ -39,7 +39,13 @@ spec:
                 path: credentials.json
       containers:
       - name: gateway
-        image: ghcr.io/inspiration-particle/brokul-gateway:0.1.0
+        # 0.1.1 checks permissions against core.user_permission instead of
+        # core.user_permission_view. The view reads two FORCE-RLS tables and is
+        # owned by the app's role rather than being security_invoker, so RLS is
+        # evaluated as the VIEW'S OWNER whoever asks — this pool asserts no
+        # identity, so it saw nothing and denied every request from a fully
+        # provisioned account with 403.
+        image: ghcr.io/inspiration-particle/brokul-gateway:0.1.1
         ports:
         - containerPort: 9998
           name: api
@@ -78,7 +84,7 @@ spec:
         - name: SERVICE_ENV
           value: "prod"
         - name: SERVICE_VERSION
-          value: "0.1.0"
+          value: "0.1.1"
         - name: LOG_LEVEL
           value: "info"
         - name: TR_ENABLED

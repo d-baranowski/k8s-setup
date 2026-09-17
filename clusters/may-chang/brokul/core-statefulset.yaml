@@ -29,6 +29,9 @@ spec:
         - name: ghcr-pull-secret
       containers:
       - name: core
+        # 0.1.5 carries the same permission-check fix as gateway 0.1.1: the
+        # check reads core.user_permission, not the owner-evaluated view.
+        #
         # 0.1.4 lets provisioning FIND the account it created. The opening
         # lookup is `where external_id = $1`, RLS applies to it, and the session
         # has no identity yet — so it saw nothing, inserted again, and collided
@@ -52,7 +55,7 @@ spec:
         # row-level security policy" — a hole that exists only where the app
         # connects as a role RLS applies to, which is nowhere in development,
         # where DB_USER defaults to the postgres superuser.
-        image: ghcr.io/inspiration-particle/brokul-core:0.1.4
+        image: ghcr.io/inspiration-particle/brokul-core:0.1.5
         ports:
         - containerPort: 9102
           name: api
@@ -70,7 +73,7 @@ spec:
         - name: SERVICE_ENV
           value: "prod"
         - name: SERVICE_VERSION
-          value: "0.1.4"
+          value: "0.1.5"
         - name: LOG_LEVEL
           value: "info"
         - name: TR_ENABLED
