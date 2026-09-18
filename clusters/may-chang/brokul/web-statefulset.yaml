@@ -40,7 +40,7 @@ spec:
         #
         # NEXT_PUBLIC_* are baked into the JavaScript, so this cannot be fixed
         # with an env var here — it takes a rebuild, and therefore a new tag.
-        image: ghcr.io/inspiration-particle/brokul-web:0.1.35-prod
+        image: ghcr.io/inspiration-particle/brokul-web:0.1.36-prod
         ports:
         - containerPort: 3000
           name: http
