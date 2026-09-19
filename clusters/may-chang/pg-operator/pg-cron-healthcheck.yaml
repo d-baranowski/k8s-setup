@@ -1,0 +1,137 @@
+# Does pg_cron actually run anything? Nothing else asks.
+#
+# THIS EXISTS BECAUSE OF 616,864 FAILURES NOBODY SAW. core.clear_expired_user_locks() was
+# scheduled on pg-staging-cluster on 2026-06-04 and failed every single minute until
+# 2026-09-19 — `connection failed`, because pg_cron opened a libpq connection to localhost
+# as the job's role and the pg_hba block in the cluster manifests answers md5. It succeeded
+# exactly never.
+#
+# Every surface you would look at said it was fine. `cron.job` listed the job as active.
+# `cron.job_run_details` filled with a fresh row every minute. The pod was healthy, the
+# database was up, no alert existed that could fire. The failure lives in one column —
+# `status` — that no dashboard showed and no person read for three and a half months.
+#
+# So the check is not "is Postgres up" but "has each pg_cron job succeeded lately", asked of
+# both clusters, as postgres because pg_cron puts row-level security on job_run_details and
+# a lesser role sees an empty table rather than an error.
+#
+# It reports by exiting non-zero: kube-state-metrics turns that into kube_job_failed, which
+# alerts.yaml alerts on. The detail — which job, which cluster, how long since it last
+# worked — is in the pod log.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pg-cron-healthcheck
+  namespace: default
+  labels:
+    app: pg-cron-healthcheck
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  # Keep a few failures around: the pod log is where the detail is, and the alert points here.
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 300
+  jobTemplate:
+    spec:
+      # No retries. A retry would turn a real finding into a Job that eventually succeeds by
+      # accident and clears the alert on its own.
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: pg-cron-healthcheck
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: check
+            image: postgres:15-alpine@sha256:fe0737ba566a2c5b2a28f34433c0a423261900ec17b9bf7ad115e1aae7e57f1b
+            env:
+            - name: PROD_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres.pg-op-cluster.credentials.postgresql.acid.zalan.do
+                  key: password
+            - name: STAGING_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres.pg-staging-cluster.credentials.postgresql.acid.zalan.do
+                  key: password
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -u
+              PROBLEMS=0
+
+              check() {
+                NAME="$1"; HOST="$2"; DB="$3"; PGPASSWORD="$4"
+                export PGPASSWORD
+                echo "=== $NAME ($DB on $HOST) ==="
+
+                # One row per pg_cron job that is not demonstrably working. The four cases
+                # are deliberately different: a job that never launched is not the same
+                # failure as one that launches and fails, and neither announces itself.
+                OUT=$(psql -h "$HOST" -p 5432 -U postgres -d "$DB" -w -tA -F' | ' \
+                          -v ON_ERROR_STOP=1 <<'SQL'
+              with j as (
+                select jobid, coalesce(jobname, 'job_' || jobid) as name, schedule, active
+                from cron.job
+              ),
+              r as (
+                select jobid,
+                       count(*) filter (where status = 'failed'
+                                          and start_time > now() - interval '1 hour') as failed_1h,
+                       count(*) filter (where status = 'succeeded'
+                                          and start_time > now() - interval '1 hour') as ok_1h,
+                       max(start_time) filter (where status = 'succeeded')            as last_ok
+                from cron.job_run_details
+                group by jobid
+              )
+              select j.name,
+                     j.schedule,
+                     case
+                       when not j.active           then 'INACTIVE - scheduled but switched off'
+                       when r.jobid is null        then 'NEVER LAUNCHED - no run ever recorded'
+                       when r.last_ok is null      then 'NEVER SUCCEEDED - ' || r.failed_1h ||
+                                                        ' failures in the last hour'
+                       when r.ok_1h = 0            then 'ALL RUNS FAILING - last success ' ||
+                                                        age(now(), r.last_ok)
+                       else                             'SOME RUNS FAILING - ' || r.failed_1h ||
+                                                        ' of ' || (r.failed_1h + r.ok_1h) ||
+                                                        ' in the last hour'
+                     end as problem
+              from j
+              left join r using (jobid)
+              where not j.active
+                 or r.jobid is null
+                 or r.last_ok is null
+                 or coalesce(r.failed_1h, 0) > 0
+              order by j.name;
+              SQL
+              )
+                if [ $? -ne 0 ]; then
+                  echo "  COULD NOT CHECK: psql failed against $HOST/$DB"
+                  echo "$OUT"
+                  PROBLEMS=$((PROBLEMS + 1))
+                  return
+                fi
+
+                if [ -n "$OUT" ]; then
+                  echo "$OUT" | sed 's/^/  BROKEN: /'
+                  PROBLEMS=$((PROBLEMS + 1))
+                else
+                  echo "  all pg_cron jobs have succeeded within the last hour"
+                fi
+              }
+
+              check "prod"    "pg-op-cluster.default.svc.cluster.local"      "utro"        "$PROD_PASSWORD"
+              check "staging" "pg-staging-cluster.default.svc.cluster.local" "utr_staging" "$STAGING_PASSWORD"
+
+              if [ "$PROBLEMS" -gt 0 ]; then
+                echo
+                echo "FAILING: $PROBLEMS of 2 clusters have pg_cron jobs that are not working."
+                exit 1
+              fi
+              echo
+              echo "OK: both clusters' pg_cron jobs are running and succeeding."
