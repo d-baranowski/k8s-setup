@@ -85,6 +85,32 @@ spec:
           name: postgres-backup-aws-creds
           key: AWS_SECRET_ACCESS_KEY
 
+  # WHAT THE DATABASE IS ALLOWED TO USE, stated here rather than inherited.
+  #
+  # Without this block the operator's defaults apply, which are 100Mi requested and 500Mi
+  # limit — for one Postgres serving six tenants (utro, n8n, mattermost, passbolt, nextcloud,
+  # brokul). It was OOMKilled five times in three days, and the symptom is not a database that
+  # is down: it is Patroni coming back up in recovery, `cannot execute LISTEN during recovery`
+  # in every service that subscribes to a channel, requests that take eighteen seconds, and an
+  # app reporting "could not load" while its own pods are perfectly healthy.
+  #
+  # What pushed it over was brokuł's product library: twenty-two thousand rows carrying a GIN
+  # trigram index and a GIN tsvector, plus searches that scan them. That is a small table by
+  # any normal measure — which is the point. 500Mi was never a limit anybody chose, and the
+  # first workload to ask anything of the database found it.
+  #
+  # 2Gi limit, 768Mi requested. The node has 16Gi allocatable and 74% requested before this,
+  # so the request fits comfortably; the limit is headroom for an index build rather than a
+  # target. Applying it restarts the pod once, briefly, for every tenant — which is what has
+  # already been happening five times unannounced.
+  resources:
+    requests:
+      cpu: 200m
+      memory: 768Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
   volume:
     size: 40Gi
 
