@@ -12,6 +12,24 @@ spec:
     parameters:
       shared_preload_libraries: "pg_cron"
       cron.database_name: "utr_staging"
+      # pg_cron has to run its jobs in a background worker, because it cannot
+      # authenticate as anything else.
+      #
+      # With this off (the default), pg_cron runs each job by opening a real
+      # libpq connection to cron.host (localhost) as the job's role — and the
+      # patroni.pg_hba block below replaced Spilo's defaults with md5 on every
+      # host line. pg_cron has no password to offer, so every run is refused.
+      # It does not warn, disable the job or back off; it retries every minute
+      # forever. core.clear_expired_user_locks() failed 616,864 times on
+      # pg-staging-cluster between 2026-06-04 and 2026-09-19 and succeeded
+      # exactly never, which reads in cron.job_run_details as a job that is
+      # scheduled and running.
+      #
+      # `on` drops the connection entirely: the job runs in a background worker
+      # as its owning role, with no authentication in the path, so the pg_hba
+      # block stops being able to silently disable cron. Postmaster-context
+      # GUC, so it takes a Postgres restart to apply.
+      cron.use_background_workers: "on"
       # Logical replication for the core-event CDC service (publication
       # core_event_pub, slot core_event_slot via pgoutput). Mirrors the dev
       # postgres settings in utro/docker-compose.yml. Changing wal_level
