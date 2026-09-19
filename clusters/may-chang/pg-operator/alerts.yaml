@@ -1,0 +1,78 @@
+# Alerts for the shared Postgres.
+#
+# Prometheus discovers PrometheusRules in every namespace, so these live next to the cluster
+# they describe — same reasoning as nextcloud/alerts.yaml and passbolt/alerts.yaml.
+#
+# THESE EXIST BECAUSE NOTHING SAID ANYTHING. The cluster was OOMKilled five times in three days
+# on the operator's default 500Mi limit, and the way it surfaced was a person opening an app
+# and being told the plan could not be loaded. Every pod was Running, the site answered 200,
+# and the only trace was `cannot execute LISTEN during recovery` in a service log nobody reads
+# and an eighteen-second page load nobody measured.
+#
+# One database serves six tenants here. A restart is never local to the workload that caused
+# it, which is precisely why it needs to be announced rather than discovered.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pg-op-cluster-alerts
+  namespace: default
+  labels:
+    app: pg-op-cluster
+    component: alerts
+spec:
+  groups:
+    - name: pg-op-cluster
+      rules:
+        # THE ONE THAT MATTERS. An OOMKill is not a restart that happened to be untidy: the
+        # database comes back in recovery, every LISTEN in every tenant fails until it is out,
+        # and any connection pool holding a socket gets an unexpected EOF rather than an error
+        # it can explain.
+        - alert: PostgresOOMKilled
+          expr: >-
+            kube_pod_container_status_last_terminated_reason{namespace="default", pod=~"pg-op-cluster-.*", reason="OOMKilled"} == 1
+          for: 1m
+          labels:
+            severity: critical
+            service: postgres
+          annotations:
+            summary: "The shared Postgres was OOMKilled"
+            description: >-
+              pg-op-cluster hit its memory limit and was killed. It serves utro, n8n,
+              mattermost, passbolt, nextcloud and brokuł, so every one of them saw a database
+              in recovery. Check the limit in clusters/may-chang/pg-operator/cluster.yaml
+              against what the workloads now need —
+              `kubectl -n default describe pod pg-op-cluster-0 | grep -A5 "Last State"` —
+              rather than restarting it and waiting for the next one.
+
+        - alert: PostgresRestartLoop
+          expr: increase(kube_pod_container_status_restarts_total{namespace="default", pod=~"pg-op-cluster-.*", container="postgres"}[6h]) > 2
+          for: 10m
+          labels:
+            severity: critical
+            service: postgres
+          annotations:
+            summary: "The shared Postgres restarted {{ $value | humanize }} times in six hours"
+            description: >-
+              Repeated restarts of the one database every tenant depends on. Patroni comes back
+              in recovery each time, which shows up in the apps as reads that fail for a minute
+              and then start working — the kind of fault people report as "it was down earlier"
+              and cannot reproduce.
+
+        # Near the limit, before it is over it. The point of this one is to be boring: it
+        # should fire days before the two above ever can.
+        - alert: PostgresMemoryNearLimit
+          expr: >-
+            container_memory_working_set_bytes{namespace="default", pod=~"pg-op-cluster-.*", container="postgres"}
+            / on(pod) kube_pod_container_resource_limits{namespace="default", pod=~"pg-op-cluster-.*", container="postgres", resource="memory"}
+            > 0.85
+          for: 30m
+          labels:
+            severity: warning
+            service: postgres
+          annotations:
+            summary: "The shared Postgres is using {{ $value | humanizePercentage }} of its memory limit"
+            description: >-
+              Sustained above 85% of the limit. Raising it is a one-line change to the
+              postgresql resource in clusters/may-chang/pg-operator/cluster.yaml, and applying
+              it restarts the pod once for every tenant — cheaper done deliberately than as an
+              OOMKill at an unchosen moment.
