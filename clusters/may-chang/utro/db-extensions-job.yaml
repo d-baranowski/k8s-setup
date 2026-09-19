@@ -1,0 +1,102 @@
+# Postgres extensions for utro, stated here rather than left to whoever ran
+# psql last.
+#
+# The set is the one utro's dev database gets from
+# utro/docker/postgres/initdb.d/00001.sql at first boot, plus unaccent, which
+# the core migration 20260917170000_search_configuration.sql creates. Dev gets
+# them free; the operator-managed clusters got them one at a time, by hand,
+# which is how staging ended up without pg_trgm and prod without pg_cron.
+#
+# pg_cron is the one that actually changes something here. The cluster has
+# carried `shared_preload_libraries: pg_cron` and `cron.database_name: utro`
+# since it was built (see ../pg-operator/cluster.yaml) — the worker is loaded
+# and pointed at this database, and only the extension was ever missing, so
+# every `cron.schedule()` in utro has been an error rather than a job that
+# quietly never fired. Creating it needs no restart, and schedules nothing on
+# its own: the cron.job table starts empty.
+#
+# Every statement is `if not exists`, so the Job is a no-op wherever the
+# extension is already there and the file can stay as the record of the full
+# intended set. It re-runs whenever this template changes
+# (kustomize.toolkit.fluxcd.io/force), and a restored or rebuilt cluster gets
+# the extensions back without anyone remembering this list.
+#
+# Runs as `postgres`: pg_cron and pg_partman are not trusted extensions, so
+# utro_user cannot create them however much it owns the database. This cluster
+# is shared with n8n, mattermost, passbolt, brokuł and nextcloud — the Job
+# connects to utro and touches nothing in the other five databases.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: utro-db-extensions
+  namespace: default
+  labels:
+    app: utro-db-extensions
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: utro-db-extensions
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: extensions
+        image: postgres:15-alpine@sha256:fe0737ba566a2c5b2a28f34433c0a423261900ec17b9bf7ad115e1aae7e57f1b
+        env:
+        - name: PGHOST
+          value: "pg-op-cluster.default.svc.cluster.local"
+        - name: PGPORT
+          value: "5432"
+        - name: PGDATABASE
+          value: "utro"
+        - name: PGSSLMODE
+          value: "require"
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: postgres.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: username
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres.pg-op-cluster.credentials.postgresql.acid.zalan.do
+              key: password
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          -- pg_partman lives in its own schema in dev and in both operator
+          -- clusters; keep it there rather than letting it land in public.
+          create schema if not exists partman;
+
+          create extension if not exists btree_gist;
+          create extension if not exists pg_partman with schema partman;
+          create extension if not exists pg_cron;
+          create extension if not exists pgcrypto;
+          create extension if not exists pg_trgm;
+          create extension if not exists unaccent;
+
+          -- `create extension if not exists` succeeds quietly when the
+          -- extension is missing from the image as well as from the database,
+          -- so state what the database must end up with and fail on it.
+          do $$
+          declare missing text;
+          begin
+            select string_agg(x, ', ' order by x) into missing
+            from unnest(array['btree_gist','pg_cron','pg_partman',
+                              'pgcrypto','pg_trgm','unaccent']) x
+            where not exists (select 1 from pg_extension where extname = x);
+            if missing is not null then
+              raise exception 'extensions still missing after create: %', missing;
+            end if;
+          end $$;
+
+          \echo 'installed extensions:'
+          SQL
+          psql -v ON_ERROR_STOP=1 -c "\dx"
