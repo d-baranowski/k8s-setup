@@ -5,6 +5,7 @@ resources:
   - helm-release.yaml
   - cluster.yaml
   - alerts.yaml
+  - pg-cron-healthcheck.yaml
   - postgres-backup-aws-creds.yaml
   - pgadmin.yaml
   - pg-admin-ingress.yaml

@@ -76,3 +76,60 @@ spec:
               postgresql resource in clusters/may-chang/pg-operator/cluster.yaml, and applying
               it restarts the pod once for every tenant — cheaper done deliberately than as an
               OOMKill at an unchosen moment.
+
+        # PG_CRON, WHICH FAILED 616,864 TIMES WITHOUT ANYONE FINDING OUT.
+        #
+        # core.clear_expired_user_locks() was scheduled on pg-staging-cluster on 2026-06-04
+        # and never once succeeded. `cron.job` showed it active, `cron.job_run_details` grew
+        # a fresh row every minute, and every row said status = failed. There was no metric
+        # that could have fired, because nothing exports pg_cron's state — so the next three
+        # alerts watch the pg-cron-healthcheck CronJob, which asks the question every fifteen
+        # minutes and exits non-zero when the answer is wrong.
+        - alert: PgCronJobFailing
+          expr: kube_job_failed{namespace="default", job_name=~"pg-cron-healthcheck.*", condition="true"} > 0
+          for: 5m
+          labels:
+            severity: critical
+            service: postgres
+          annotations:
+            summary: "A pg_cron job is not running on one of the Postgres clusters"
+            description: >-
+              pg-cron-healthcheck found a scheduled pg_cron job that is failing, has never
+              succeeded, has never launched, or has been switched off — on pg-op-cluster,
+              pg-staging-cluster, or both. Which job and which cluster is in the pod log:
+              `kubectl -n default logs -l app=pg-cron-healthcheck --tail=50`.
+              A pg_cron job that cannot connect looks identical to one that is working
+              unless you read job_run_details.status, so treat this as the only warning
+              you will get.
+
+        # The check not running is the same failure as the thing it checks, one level up.
+        # `unless` keeps this quiet while PgCronJobFailing is already firing — this one is
+        # specifically "the check stopped happening", not "the check found something".
+        - alert: PgCronHealthcheckNotRunning
+          expr: >-
+            (time() - kube_cronjob_status_last_successful_time{namespace="default", cronjob="pg-cron-healthcheck"} > 3600)
+            unless on() (kube_job_failed{namespace="default", job_name=~"pg-cron-healthcheck.*", condition="true"} > 0)
+          for: 15m
+          labels:
+            severity: warning
+            service: postgres
+          annotations:
+            summary: "pg-cron-healthcheck has not completed for over an hour"
+            description: >-
+              The CronJob runs every 15 minutes and is neither succeeding nor failing, so it
+              is not running at all — suspended, unschedulable, or unable to start its pod.
+              While that is true, nothing is watching pg_cron on either cluster.
+
+        - alert: PgCronHealthcheckMissing
+          expr: absent(kube_cronjob_status_last_successful_time{namespace="default", cronjob="pg-cron-healthcheck"})
+          for: 30m
+          labels:
+            severity: warning
+            service: postgres
+          annotations:
+            summary: "pg-cron-healthcheck has disappeared"
+            description: >-
+              Prometheus can no longer see the CronJob at all — deleted, renamed, or removed
+              from clusters/may-chang/pg-operator/kustomization.yaml. This alert exists
+              because the original pg_cron failure was invisible for three and a half months,
+              and a monitor that can be silently removed reproduces exactly that.
