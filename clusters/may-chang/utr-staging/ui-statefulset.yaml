@@ -33,6 +33,9 @@ spec:
           value: "production"
         - name: BFF_URL
           value: "http://utr-staging-gateway.default.svc.cluster.local:9999"
+        # Shown in the API token dialog's example request (UTR-000896).
+        - name: API_PUBLIC_URL
+          value: "https://api.inspi.cloud"
           #        - name: CORE_URL
           #          value: "http://utr-staging-core.default.svc.cluster.local:9102"
         - name: SERVICE_ENV
