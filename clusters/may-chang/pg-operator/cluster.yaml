@@ -121,10 +121,15 @@ spec:
   # so the request fits comfortably; the limit is headroom for an index build rather than a
   # target. Applying it restarts the pod once, briefly, for every tenant — which is what has
   # already been happening five times unannounced.
+  #
+  # Request raised to 1Gi on 2026-09-25: container_memory_max_usage_bytes peaked at 816Mi
+  # over the prior 30 days, above the 768Mi request, while the sampled working set never
+  # showed more than 618Mi. Size the request from max_usage, not the sampled graph. The
+  # limit stays at 2Gi.
   resources:
     requests:
       cpu: 200m
-      memory: 768Mi
+      memory: 1Gi
     limits:
       cpu: "2"
       memory: 2Gi
