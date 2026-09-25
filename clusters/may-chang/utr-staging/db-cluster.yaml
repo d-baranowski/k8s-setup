@@ -66,6 +66,26 @@ spec:
       - "hostssl all             utr_staging_migrator ::/0               md5"
       - "hostssl all             core_event           ::/0               md5"
 
+  # WHAT THE DATABASE IS ALLOWED TO USE, stated here rather than inherited — the
+  # same fix pg-op-cluster got in cluster.yaml, which this cluster never received.
+  #
+  # On the operator's defaults (100Mi requested, 500Mi limit) it sat at ~496Mi
+  # and was OOMKilled 8–9 times a day from 2026-09-22, up from once a day before
+  # 09-19; ten days earlier its working set was ~167Mi. Each kill is a short
+  # staging outage, and one of them failed pg-cron-healthcheck on DNS alone.
+  #
+  # 1Gi limit, 512Mi requested. The usage graph is flat against the old limit, so
+  # there is no honest high-water mark to size from yet — read
+  # container_memory_max_usage_bytes once it has run a week under this one and
+  # tighten it then. Applying it restarts the pod once.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
   volume:
     size: 10Gi
 
