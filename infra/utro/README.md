@@ -56,8 +56,8 @@ it once, running as your **base IAM user** rather than the assumed role:
 
 That adds a single inline policy (`terraform-utro-assets`) and leaves every
 other policy on the role alone, so it is safe to re-run. Its bucket scoping is
-by name — keep it in step with `assets_staging_bucket_name` /
-`assets_prod_bucket_name`.
+by name — keep it in step with the `assets_*_bucket_name` and
+`documents_*_bucket_name` variables. Re-run it whenever a bucket is added.
 
 The two asset domains sit in **different Cloudflare zones** (`inspi.cloud` and
 `inspiration-particle.com`), so the token must cover both. The one minted by
@@ -88,3 +88,17 @@ files still have to be added to the relevant `kustomization.yaml`; Flux does not
 pick up files that are not listed.
 
 Set `assets_manage_dns = false` to provision the AWS side without touching DNS.
+
+Documents: private buckets
+--------------------------
+
+`documents.tf` provisions a second, private bucket per environment for the
+assets service's documents (UTR-000866), from `../modules/private-bucket`. There
+is no CDN: browsers download through presigned URLs against
+`s3.eu-central-1.amazonaws.com`. The service signs both buckets with one key
+pair, so each environment's writer policy is attached to the existing
+`utro-assets-<env>-s3-writer` user rather than a new one. Prod keeps noncurrent
+versions for `documents_prod_noncurrent_version_days`.
+
+The statefulset reads the bucket name from `STORAGE_DOCUMENTS_BUCKET`; see
+`terraform output assets_service_env`.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Grant TerraformAdminUtro the permissions the assets stack needs
-# (S3 asset buckets + CloudFront + ACM + the writer IAM users).
+# (S3 asset and document buckets + CloudFront + ACM + the writer IAM users).
 #
 # The role cannot grant itself permissions, so this runs as your base IAM user
 # (admin), NOT from an already-assumed role. Same shape as the kadis repo's
@@ -20,11 +20,13 @@
 # Overrides:
 #   ROLE_NAME       default: TerraformAdminUtro
 #   POLICY_NAME     default: terraform-utro-assets
-#   STAGING_BUCKET  default: utro-assets-staging
-#   PROD_BUCKET     default: utro-assets
+#   STAGING_BUCKET            default: utro-assets-staging
+#   PROD_BUCKET               default: utro-assets
+#   STAGING_DOCUMENTS_BUCKET  default: utro-documents-staging
+#   PROD_DOCUMENTS_BUCKET     default: utro-documents-prod
 #
-# Keep the bucket names in step with assets_staging_bucket_name /
-# assets_prod_bucket_name in variables.tf — the policy is scoped to them by
+# Keep the bucket names in step with the assets_*_bucket_name and
+# documents_*_bucket_name variables in variables.tf — the policy is scoped to them by
 # name, so a rename here without a rename there produces an AccessDenied that
 # looks like a Terraform bug.
 
@@ -34,6 +36,8 @@ ROLE_NAME="${ROLE_NAME:-TerraformAdminUtro}"
 POLICY_NAME="${POLICY_NAME:-terraform-utro-assets}"
 STAGING_BUCKET="${STAGING_BUCKET:-utro-assets-staging}"
 PROD_BUCKET="${PROD_BUCKET:-utro-assets}"
+STAGING_DOCUMENTS_BUCKET="${STAGING_DOCUMENTS_BUCKET:-utro-documents-staging}"
+PROD_DOCUMENTS_BUCKET="${PROD_DOCUMENTS_BUCKET:-utro-documents-prod}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 POLICY_SRC="${SCRIPT_DIR}/iam-tf-role/assets-access.json"
@@ -71,10 +75,12 @@ trap 'rm -f "$POLICY_FILE"' EXIT
 
 sed -e "s|__STAGING_BUCKET__|${STAGING_BUCKET}|g" \
     -e "s|__PROD_BUCKET__|${PROD_BUCKET}|g" \
+    -e "s|__STAGING_DOCUMENTS_BUCKET__|${STAGING_DOCUMENTS_BUCKET}|g" \
+    -e "s|__PROD_DOCUMENTS_BUCKET__|${PROD_DOCUMENTS_BUCKET}|g" \
     "$POLICY_SRC" > "$POLICY_FILE"
 
 echo "==> Attaching inline policy ${POLICY_NAME} to ${ROLE_NAME}"
-echo "    buckets:    ${STAGING_BUCKET}, ${PROD_BUCKET}"
+echo "    buckets:    ${STAGING_BUCKET}, ${PROD_BUCKET}, ${STAGING_DOCUMENTS_BUCKET}, ${PROD_DOCUMENTS_BUCKET}"
 echo "    cloudfront: full (create/update/delete distributions, OAC, policies)"
 echo "    acm:        request/describe/delete certificates"
 echo "    iam:        users and policies matching utro-assets-*"

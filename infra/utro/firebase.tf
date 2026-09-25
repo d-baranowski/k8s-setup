@@ -40,6 +40,16 @@ resource "google_identity_platform_config" "auth" {
       enabled           = true
       password_required = false
     }
+
+    # Declared off explicitly: the API returns these blocks, so omitting them
+    # shows as a perpetual in-place update.
+    phone_number {
+      enabled = false
+    }
+  }
+
+  multi_tenant {
+    allow_tenants = false
   }
 
   authorized_domains = var.firebase_authorized_domains

@@ -31,8 +31,8 @@ locals {
   # SA emails — used as inputs both to TF resources and to dependent
   # systems (Jenkins credential `gcp-ci-fleet-sa-key` references
   # ci-fleet@..., gcp-firewall-updater.service uses utro-firewall-updater).
-  ci_fleet_sa_email          = "ci-fleet@${var.gcp_project_id}.iam.gserviceaccount.com"
-  firewall_updater_sa_email  = "utro-firewall-updater@${var.gcp_project_id}.iam.gserviceaccount.com"
+  ci_fleet_sa_email         = "ci-fleet@${var.gcp_project_id}.iam.gserviceaccount.com"
+  firewall_updater_sa_email = "utro-firewall-updater@${var.gcp_project_id}.iam.gserviceaccount.com"
 
   ci_fleet_bucket = "${var.gcp_project_id}-ci-images"
 }

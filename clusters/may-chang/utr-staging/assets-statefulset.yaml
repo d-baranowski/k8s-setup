@@ -73,6 +73,8 @@ spec:
           value: "s3.eu-central-1.amazonaws.com"
         - name: STORAGE_BUCKET
           value: "utro-assets-staging"
+        - name: STORAGE_DOCUMENTS_BUCKET
+          value: "utro-documents-staging"
         - name: STORAGE_REGION
           value: "eu-central-1"
         - name: STORAGE_USE_SSL
