@@ -129,6 +129,20 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "utro" {
         tls_timeout            = "10s"
       }
     }
+    # Staging public API. Bearer API tokens only; Access is bypassed (access.tf)
+    # because an integration has no browser to sign in with.
+    ingress_rule {
+      hostname = "api.inspi.cloud"
+      service  = "http://utr-staging-api-gateway.default.svc.cluster.local:9997"
+      origin_request {
+        connect_timeout        = "30s"
+        keep_alive_connections = 100
+        keep_alive_timeout     = "1m30s"
+        proxy_address          = "127.0.0.1"
+        tcp_keep_alive         = "30s"
+        tls_timeout            = "10s"
+      }
+    }
     ingress_rule {
       service = "http_status:404"
     }

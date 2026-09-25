@@ -198,3 +198,25 @@ resource "cloudflare_zero_trust_access_policy" "staging_customer_api_bypass" {
     everyone = true
   }
 }
+
+# Staging public API (UTR-000890). Bypassed like the customer API: callers are
+# integrations holding a utro API token, not org members with a browser.
+resource "cloudflare_zero_trust_access_application" "staging_api" {
+  zone_id          = local.zone_inspi_cloud
+  name             = "Staging API Bypass"
+  domain           = "api.inspi.cloud"
+  type             = "self_hosted"
+  session_duration = "24h"
+}
+
+resource "cloudflare_zero_trust_access_policy" "staging_api_bypass" {
+  zone_id        = local.zone_inspi_cloud
+  application_id = cloudflare_zero_trust_access_application.staging_api.id
+  name           = "Bypass for API token holders"
+  decision       = "bypass"
+  precedence     = 1
+
+  include {
+    everyone = true
+  }
+}

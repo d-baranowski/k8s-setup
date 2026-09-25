@@ -113,3 +113,14 @@ spec:
   interval: 5m0s
   secretRef:
     name: ghcr-pull-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: utr-staging-api-gateway
+  namespace: flux-system
+spec:
+  image: ghcr.io/inspiration-particle/utro-api-gateway
+  interval: 5m0s
+  secretRef:
+    name: ghcr-pull-secret
