@@ -33,10 +33,20 @@ spec:
           value: "production"
         - name: BFF_URL
           value: "http://utr-staging-gateway.default.svc.cluster.local:9999"
+        # Shown in the API token dialog's example request (UTR-000896).
+        - name: API_PUBLIC_URL
+          value: "https://api.inspi.cloud"
           #        - name: CORE_URL
           #          value: "http://utr-staging-core.default.svc.cluster.local:9102"
         - name: SERVICE_ENV
           value: "staging"
+        # Proves to the gateway that a request comes from the admin UI's server
+        # (UTR-000892). Both ends must hold the same value.
+        - name: GATEWAY_BFF_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: utr-staging-gateway-bff
+              key: GATEWAY_BFF_SECRET
         - name: SERVICE_VERSION
           value: "0.1.139" # {"$imagepolicy": "flux-system:utr-staging-ui:tag"}
         - name: BOOTSTRAP_API_URL

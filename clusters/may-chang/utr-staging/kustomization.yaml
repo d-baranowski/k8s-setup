@@ -29,6 +29,10 @@ resources:
   - customer-ui-statefulset.yaml
   - customer-ui-service.yaml
   - utr-staging-turnstile-secret.yaml
+  - utr-staging-gateway-bff-secret.yaml
+  - api-gateway-migrate-job.yaml
+  - api-gateway-statefulset.yaml
+  - api-gateway-service.yaml
   - image-repositories.yaml
   - image-policies.yaml
   - image-update-automation.yaml

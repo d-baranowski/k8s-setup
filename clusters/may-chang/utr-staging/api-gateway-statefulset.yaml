@@ -1,49 +1,54 @@
+# The public API for external tooling (UTR-000890): bearer API tokens only. No
+# client-supplied identity header is believed here; the token is resolved by
+# core's ApiTokenAuthService and narrows every request to its grants.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: utr-staging-gateway
+  name: utr-staging-api-gateway
   namespace: default
   labels:
-    app: utr-staging-gateway
+    app: utr-staging-api-gateway
 spec:
-  serviceName: utr-staging-gateway
-  replicas: 2
+  serviceName: utr-staging-api-gateway
+  replicas: 1
   selector:
     matchLabels:
-      app: utr-staging-gateway
+      app: utr-staging-api-gateway
   template:
     metadata:
       labels:
-        app: utr-staging-gateway
+        app: utr-staging-api-gateway
     spec:
       containers:
-      - name: gateway
-        image: ghcr.io/inspiration-particle/utro-gateway:0.1.139 # {"$imagepolicy": "flux-system:utr-staging-gateway"}
+      - name: api-gateway
+        image: ghcr.io/inspiration-particle/utro-api-gateway:0.1.139 # {"$imagepolicy": "flux-system:utr-staging-api-gateway"}
         ports:
-        - containerPort: 9999
+        - containerPort: 9997
           name: api
-        - containerPort: 18007
+        - containerPort: 18013
           name: health
         env:
         - name: TIMEZONE
           value: "Europe/Warsaw"
         - name: HEALTH_PORT
-          value: "18007"
+          value: "18013"
         - name: API_PORT
-          value: "9999"
-        - name: USER
-          value: "postgres"
+          value: "9997"
         - name: LOG_LEVEL
           value: "debug"
+        - name: SERVICE_NAME
+          value: "rpg.api-gateway"
+        - name: SERVICE_ENV
+          value: "staging"
+        - name: SERVICE_VERSION
+          value: "0.1.139" # {"$imagepolicy": "flux-system:utr-staging-api-gateway:tag"}
+        # Bare host:port: pkg/gateway folds these into url.URL.Host.
+        - name: CORE_SERVICE
+          value: "utr-staging-core.default.svc.cluster.local:9102"
         - name: PAYMENT_SERVICE
           value: "utr-staging-payment.default.svc.cluster.local:9102"
         - name: NOTIFICATION_SERVICE
           value: "utr-staging-notification.default.svc.cluster.local:9002"
-        - name: CORE_SERVICE
-          value: "utr-staging-core.default.svc.cluster.local:9102"
-        # Bare host:port on purpose: AddProxiedService folds this into
-        # url.URL.Host, so a scheme prefix yields an unresolvable hostname and
-        # a 502 on every call.
         - name: ASSETS_SERVICE
           value: "utr-staging-assets.default.svc.cluster.local:9003"
         - name: WITH_PERMISSIONS
@@ -52,19 +57,18 @@ spec:
           value: "true"
         - name: RPG_PERMISSIONS_FLAG
           value: "true"
-        - name: SERVICE_VERSION
-          value: "0.1.139" # {"$imagepolicy": "flux-system:utr-staging-gateway:tag"}
-        - name: SERVICE_NAME
-          value: "rpg.gateway"
-        - name: SERVICE_ENV
-          value: "staging"
-        # Proves to the gateway that a request comes from the admin UI's server
-        # (UTR-000892). Both ends must hold the same value.
-        - name: GATEWAY_BFF_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: utr-staging-gateway-bff
-              key: GATEWAY_BFF_SECRET
+        # Per IP before authentication, per token after. The IP allowance is
+        # above the token's because one integration host may run several.
+        - name: API_RATE_LIMIT_ENABLED
+          value: "true"
+        - name: API_RATE_LIMIT_PER_IP
+          value: "1200"
+        - name: API_RATE_LIMIT_PER_TOKEN
+          value: "600"
+        - name: API_RATE_LIMIT_WINDOW_SECONDS
+          value: "60"
+        - name: API_MAX_BODY_BYTES
+          value: "1048576"
         - name: TR_ENABLED
           value: "true"
         - name: TR_ENDPOINT

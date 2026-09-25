@@ -31,6 +31,16 @@ resource "cloudflare_record" "staging_customer_api" {
   ttl     = 1
 }
 
+# Public API for external tooling, authenticated by utro API tokens (UTR-000890).
+resource "cloudflare_record" "staging_api" {
+  zone_id = local.zone_inspi_cloud
+  name    = "api"
+  content = "${cloudflare_zero_trust_tunnel_cloudflared.utro.id}.cfargotunnel.com"
+  type    = "CNAME"
+  proxied = true
+  ttl     = 1
+}
+
 # Public contact-form API. Orange-cloud like utro-test; TLS at Cloudflare.
 # Website origin is kadis.inspi.cloud (CloudFront, grey-cloud) — CORS allowlist
 # on the service must include https://kadis.inspi.cloud.

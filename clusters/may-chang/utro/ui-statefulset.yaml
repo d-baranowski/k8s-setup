@@ -35,6 +35,13 @@ spec:
           value: "http://utro-gateway.default.svc.cluster.local:9999"
         - name: SERVICE_ENV
           value: "prod"
+        # Proves to the gateway that a request comes from the admin UI's server
+        # (UTR-000892). Both ends must hold the same value.
+        - name: GATEWAY_BFF_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: utro-gateway-bff
+              key: GATEWAY_BFF_SECRET
         - name: SERVICE_VERSION
           value: "0.1.137"
         - name: VERSION_CHECK_URLS
