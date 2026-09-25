@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: core
-        image: ghcr.io/inspiration-particle/utro-core:0.1.136
+        image: ghcr.io/inspiration-particle/utro-core:0.1.137
         ports:
         - containerPort: 9102
           name: api
@@ -48,7 +48,7 @@ spec:
         - name: SERVICE_ENV
           value: "prod"
         - name: SERVICE_VERSION
-          value: "0.1.136"
+          value: "0.1.137"
         - name: TR_ENABLED
           value: "true"
         - name: TR_ENDPOINT
