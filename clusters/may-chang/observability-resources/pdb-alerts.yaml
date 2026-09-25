@@ -1,0 +1,47 @@
+# kube-prometheus-stack's KubePdbNotEnoughHealthyPods, minus the PDBs that are empty on purpose.
+#
+# The Zalando postgres-operator creates two PDBs per cluster. postgres-<cluster>-pdb guards the
+# primary. postgres-<cluster>-critical-op-pdb selects `critical-operation: "true"`, a label the
+# operator puts on the pods only while something must not be interrupted — a major version
+# upgrade — and takes off again afterwards. It is a lock that exists permanently and holds
+# something only during that window, so the rest of the time it wants one healthy pod and
+# matches none.
+#
+# The upstream rule reads that as a missing pod. Both critical-op PDBs fired from the day their
+# clusters were created (January for pg-op-cluster, June for pg-staging-cluster) without
+# anything being wrong, and an alert that is always firing teaches everyone to read past the
+# alerts next to it.
+#
+# Excluded by name rather than by `expected_pods > 0`: the name only matches the operator's
+# lock, while an expected-pods guard would also silence a real PDB whose pods have all gone.
+# During a critical operation the lock is satisfied, so excluding it hides nothing.
+#
+# The upstream copy is switched off in helmrelease-kube-prometheus-stack.yaml
+# (defaultRules.disabled). Everything else here — expression, `for`, severity, annotations —
+# is chart 85.0.1's rule as it was.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pdb-alerts
+  namespace: observability
+  labels:
+    component: alerts
+spec:
+  groups:
+    - name: kubernetes-apps-pdb
+      rules:
+        - alert: KubePdbNotEnoughHealthyPods
+          expr: |
+            (
+              kube_poddisruptionbudget_status_desired_healthy{job="kube-state-metrics", poddisruptionbudget!~".*-critical-op-pdb"}
+              -
+              kube_poddisruptionbudget_status_current_healthy{job="kube-state-metrics", poddisruptionbudget!~".*-critical-op-pdb"}
+            )
+            > 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            description: PDB {{ $labels.cluster }}/{{ $labels.namespace }}/{{ $labels.poddisruptionbudget }} expects {{ $value }} more healthy pods. The desired number of healthy pods has not been met for at least 15m.
+            runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepdbnotenoughhealthypods
+            summary: PDB does not have enough healthy pods.

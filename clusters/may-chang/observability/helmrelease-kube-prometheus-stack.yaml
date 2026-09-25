@@ -139,6 +139,12 @@ spec:
                   {{ with .Annotations.runbook_url }}<{{ . }}|runbook>{{ end }}
                   {{ end }}
 
+    # Replaced, not dropped: the same alert without the Zalando critical-op PDBs lives
+    # in observability-resources/pdb-alerts.yaml, which says why.
+    defaultRules:
+      disabled:
+        KubePdbNotEnoughHealthyPods: true
+
     kube-state-metrics:
       enabled: true
     nodeExporter:
