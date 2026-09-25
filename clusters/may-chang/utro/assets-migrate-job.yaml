@@ -1,10 +1,10 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: utro-notification-migrate
+  name: utro-assets-migrate
   namespace: default
   labels:
-    app: utro-notification-migrate
+    app: utro-assets-migrate
   annotations:
     kustomize.toolkit.fluxcd.io/force: enabled
 spec:
@@ -13,17 +13,20 @@ spec:
   template:
     metadata:
       labels:
-        app: utro-notification-migrate
+        app: utro-assets-migrate
     spec:
       restartPolicy: OnFailure
       containers:
       - name: migrate
-        image: ghcr.io/inspiration-particle/utro-notification:0.1.137
-        command: ["/app/notification"]
+        image: ghcr.io/inspiration-particle/utro-assets:0.1.137
+        # The shared docker/Dockerfile entrypoint is `sh -c "/app/$APP_NAME"`,
+        # so args alone become $0 for that shell and never reach the binary —
+        # the container would start the API server instead of migrating.
+        command: ["/app/assets"]
         args: ["-migrate=true"]
         env:
         - name: LOG_LEVEL
-          value: "debug"
+          value: "info"
         - name: DB_SSL
           value: "true"
         - name: DB_NAME
@@ -32,6 +35,8 @@ spec:
           value: "pg-op-cluster.default.svc.cluster.local"
         - name: DB_PORT
           value: "5432"
+        # Prod has no separate migrator role: utro_user owns the database and
+        # runs every service's migrations, as the other migrate jobs here do.
         - name: DB_USER
           valueFrom:
             secretKeyRef:

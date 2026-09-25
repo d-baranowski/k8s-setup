@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: utro-payment
+  name: utro-assets
   namespace: default
   labels:
-    app: utro-payment
+    app: utro-assets
 spec:
-  serviceName: utro-payment
-  replicas: 2
+  serviceName: utro-assets
+  replicas: 1
   selector:
     matchLabels:
-      app: utro-payment
+      app: utro-assets
   template:
     metadata:
       labels:
-        app: utro-payment
+        app: utro-assets
     spec:
       containers:
-      - name: payment
-        image: ghcr.io/inspiration-particle/utro-payment:0.1.137
+      - name: assets
+        image: ghcr.io/inspiration-particle/utro-assets:0.1.137
         ports:
-        - containerPort: 9102
+        - containerPort: 9003
           name: api
         - containerPort: 18007
           name: health
@@ -30,19 +30,18 @@ spec:
         - name: HEALTH_PORT
           value: "18007"
         - name: API_PORT
-          value: "9102"
+          value: "9003"
         - name: LOG_LEVEL
-          value: "debug"
-        - name: RPG_PERMISSIONS_FLAG
-          value: "true"
-        - name: SERVICE_NAME
-          value: "rpg.payment"
-        - name: SERVICE_ENV
-          value: "prod"
-        - name: PGMQ_ENABLED
-          value: "true"
+          value: "info"
         - name: SERVICE_VERSION
           value: "0.1.137"
+        - name: SERVICE_NAME
+          value: "rpg.assets"
+        # Must not be "dev": on dev the service creates the bucket itself, and
+        # production buckets are provisioned by Terraform with lifecycle rules
+        # and access policies this service has no business deciding.
+        - name: SERVICE_ENV
+          value: "prod"
         - name: TR_ENABLED
           value: "true"
         - name: TR_ENDPOINT
@@ -69,21 +68,33 @@ spec:
             secretKeyRef:
               name: utro-user.pg-op-cluster.credentials.postgresql.acid.zalan.do
               key: password
-        - name: STRIPE_PUBLISHABLE_KEY
+        # S3, from infra/utro (terraform output assets_service_env).
+        - name: STORAGE_ENDPOINT
+          value: "s3.eu-central-1.amazonaws.com"
+        - name: STORAGE_BUCKET
+          value: "utro-assets"
+        - name: STORAGE_DOCUMENTS_BUCKET
+          value: "utro-documents-prod"
+        - name: STORAGE_REGION
+          value: "eu-central-1"
+        - name: STORAGE_USE_SSL
+          value: "true"
+        # Written by the assets ExternalSecret; the keys are the service's own
+        # envconfig names, so they map straight across.
+        - name: STORAGE_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: stripe-publishable-key
-              key: value
-        - name: STRIPE_SECRET_KEY
+              name: utro-assets-s3-credentials
+              key: STORAGE_ACCESS_KEY
+        - name: STORAGE_SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: stripe-secret-key
-              key: value
-        - name: STRIPE_WEBHOOK_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: stripe-prod-webhook-secret
-              key: value
+              name: utro-assets-s3-credentials
+              key: STORAGE_SECRET_KEY
+        # What browsers fetch bytes from. Only storage keys are persisted, so
+        # changing CDN is a config change rather than a data migration.
+        - name: ASSETS_PUBLIC_BASE_URL
+          value: "https://assets.inspiration-particle.com"
         livenessProbe:
           httpGet:
             path: /live

@@ -18,11 +18,15 @@ spec:
     spec:
       containers:
       - name: ui
-        image: ghcr.io/inspiration-particle/utro-ui:0.1.64
+        image: ghcr.io/inspiration-particle/utro-ui:0.1.137
         ports:
         - containerPort: 3000
           name: http
         env:
+        # Full URL: the Next BFF at /api/assets proxies multipart uploads here,
+        # which keeps the gateway out of the byte path while preserving auth.
+        - name: ASSETS_API_URL
+          value: "http://utro-assets.default.svc.cluster.local:9003"
         - name: TIMEZONE
           value: "Europe/Warsaw"
         - name: NODE_ENV
@@ -32,13 +36,21 @@ spec:
         - name: SERVICE_ENV
           value: "prod"
         - name: SERVICE_VERSION
-          value: "0.1.64"
+          value: "0.1.137"
         - name: VERSION_CHECK_URLS
-          value: "core=utro-core:18007,gateway=utro-gateway:18007,payment=utro-payment:18007,notification=utro-notification:18007"
+          value: "core=utro-core:18007,gateway=utro-gateway:18007,payment=utro-payment:18007,notification=utro-notification:18007,assets=utro-assets:18007"
         - name: PORT
           value: "3000"
         - name: NEXT_TELEMETRY_DISABLED
           value: "1"
+        - name: NEXT_PUBLIC_OTEL_ENABLED
+          value: "true"
+        - name: NEXT_PUBLIC_OTEL_ENDPOINT
+          value: "/otel/v1/traces"
+        - name: NEXT_PUBLIC_SERVICE_ENV
+          value: "prod"
+        - name: OTEL_COLLECTOR_URL
+          value: "http://otel-collector.observability.svc.cluster.local:4318"
         - name: CF_TEAM_DOMAIN
           value: inspiration-particle.cloudflareaccess.com
         - name: CF_JWT_ISSUER

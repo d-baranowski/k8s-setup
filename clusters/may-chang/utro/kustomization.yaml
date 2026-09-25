@@ -24,3 +24,7 @@ resources:
   - notification-statefulset.yaml
   - notification-service.yaml
   - notification-migrate-job.yaml
+  - assets-statefulset.yaml
+  - assets-service.yaml
+  - assets-migrate-job.yaml
+  # assets-backfill-job.yaml is deliberately not listed; see its header.

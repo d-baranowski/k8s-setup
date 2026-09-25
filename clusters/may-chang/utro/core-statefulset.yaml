@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: core
-        image: ghcr.io/inspiration-particle/utro-core:0.1.64
+        image: ghcr.io/inspiration-particle/utro-core:0.1.137
         ports:
         - containerPort: 9102
           name: api
@@ -31,6 +31,10 @@ spec:
           value: "http://utro-payment.default.svc.cluster.local:9102"
         - name: PAYMENT_SERVICE_CLIENT_TIMEOUT_MS
           value: "10000"
+        # The compose default http://rpg.assets resolves to nothing here, and
+        # the config guard refuses to start on it outside dev.
+        - name: ASSETS_SERVICE_URL
+          value: "http://utro-assets.default.svc.cluster.local:9003"
         - name: HEALTH_PORT
           value: "18007"
         - name: API_PORT
@@ -44,7 +48,7 @@ spec:
         - name: SERVICE_ENV
           value: "prod"
         - name: SERVICE_VERSION
-          value: "0.1.64"
+          value: "0.1.137"
         - name: TR_ENABLED
           value: "true"
         - name: TR_ENDPOINT

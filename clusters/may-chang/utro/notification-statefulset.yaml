@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: notification
-        image: ghcr.io/inspiration-particle/utro-notification:0.1.64
+        image: ghcr.io/inspiration-particle/utro-notification:0.1.137
         ports:
         - containerPort: 9002
           name: api
@@ -38,7 +38,7 @@ spec:
         - name: SERVICE_ENV
           value: "prod"
         - name: SERVICE_VERSION
-          value: "0.1.64"
+          value: "0.1.137"
         - name: TR_ENABLED
           value: "true"
         - name: TR_ENDPOINT
@@ -55,6 +55,19 @@ spec:
           value: "pg-op-cluster.default.svc.cluster.local"
         - name: DB_PORT
           value: "5432"
+        # Every one of these has a dev default (rpg.core / localhost) that the
+        # config guard refuses outside dev. CUSTOMER_APP_URL is where the
+        # customer app will launch; until it does, the patient-facing
+        # templates that link to it are held inactive in the database.
+        - name: CORE_SERVICE_URL
+          value: "http://utro-core.default.svc.cluster.local:9102"
+        - name: ADMIN_APP_URL
+          value: "https://utro.inspiration-particle.com"
+        - name: CUSTOMER_APP_URL
+          value: "https://app.inspiration-particle.com"
+        # Branded emails link practice logos as <base>/<id>/email.
+        - name: ASSETS_PUBLIC_BASE_URL
+          value: "https://assets.inspiration-particle.com"
         - name: EMAIL_FROM_ADDRESS
           value: "kontakt@inspiration-particle.com"
         - name: EMAIL_API_KEY
