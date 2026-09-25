@@ -64,6 +64,10 @@ spec:
         # normal upload uses.
         - name: ASSETS_SERVICE_URL
           value: "http://utro-assets.default.svc.cluster.local:9003"
+        # Unused by the backfill, but core's config guard refuses to start
+        # outside dev while it still holds the compose default http://rpg.payment.
+        - name: PAYMENT_SERVICE_URL
+          value: "http://utro-payment.default.svc.cluster.local:9102"
         - name: DB_USER
           valueFrom:
             secretKeyRef:
