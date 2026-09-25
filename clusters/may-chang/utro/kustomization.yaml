@@ -5,6 +5,7 @@ kind: Kustomization
 # published, so the pods sat in ImagePullBackOff and, with wait: true, kept
 # this Kustomization from ever going Ready. The files stay here for launch.
 resources:
+  - utro-core-sign-in-secret.yaml
   - gateway-statefulset.yaml
   - gateway-service.yaml
   - core-statefulset.yaml

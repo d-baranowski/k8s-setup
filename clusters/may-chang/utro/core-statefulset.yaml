@@ -25,6 +25,19 @@ spec:
         - containerPort: 18007
           name: health
         env:
+        # Customer sign-in by code (UTR-000320). Off until the pepper secret exists
+        # and the notification templates are in place; SMS separately, as every text
+        # is paid for.
+        - name: SIGN_IN_ENABLED
+          value: "false"
+        - name: SIGN_IN_SMS_ENABLED
+          value: "false"
+        - name: SIGN_IN_PEPPER
+          valueFrom:
+            secretKeyRef:
+              name: utro-core-sign-in
+              key: SIGN_IN_PEPPER
+              optional: true
         - name: TIMEZONE
           value: "Europe/Warsaw"
         - name: PAYMENT_SERVICE_URL
