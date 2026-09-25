@@ -3,8 +3,13 @@ set -euo pipefail
 
 dir="${0:A:h}"
 
+# The customer app (customer-gateway, customer-ui) is held back and released
+# on its own later, so its manifests are neither read nor bumped here.
+files=("$dir"/*.yaml(N))
+files=(${files:#*/customer-*})
+
 # Discover the current version by grabbing the first utro-* image tag we find.
-current="$(grep -hEo 'ghcr\.io/inspiration-particle/utro-[a-z-]+:[0-9]+\.[0-9]+\.[0-9]+' "$dir"/*.yaml \
+current="$(grep -hEo 'ghcr\.io/inspiration-particle/utro-[a-z-]+:[0-9]+\.[0-9]+\.[0-9]+' "${files[@]}" \
   | head -1 | awk -F: '{print $NF}')"
 
 if [[ -z "$current" ]]; then
@@ -36,7 +41,7 @@ fi
 
 # Match ghcr.io/inspiration-particle/utro-<name>:<tag>, replace tag.
 # Works on macOS (BSD sed) and Linux (GNU sed) by writing to a temp file.
-for f in "$dir"/*.yaml; do
+for f in "${files[@]}"; do
   tmp="$(mktemp)"
   # 1) image tags: ghcr.io/inspiration-particle/utro-<name>:<tag>
   sed -E "s|(ghcr\.io/inspiration-particle/utro-[a-z-]+):[^[:space:]]+|\1:${version}|g" "$f" > "$tmp"
