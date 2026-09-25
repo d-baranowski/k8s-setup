@@ -74,17 +74,18 @@ spec:
   # 09-19; ten days earlier its working set was ~167Mi. Each kill is a short
   # staging outage, and one of them failed pg-cron-healthcheck on DNS alone.
   #
-  # 1Gi limit, 512Mi requested. The usage graph is flat against the old limit, so
-  # there is no honest high-water mark to size from yet — read
-  # container_memory_max_usage_bytes once it has run a week under this one and
-  # tighten it then. Applying it restarts the pod once.
+  # 2Gi limit, 768Mi requested — the request sits above the ~500Mi it already
+  # holds, and the limit matches prod so it has real room to breathe. Usage was
+  # flat against the old limit, so there is no honest high-water mark to size
+  # from yet: read container_memory_max_usage_bytes after a week under this one
+  # and tighten it then. Applying it restarts the pod once.
   resources:
     requests:
       cpu: 100m
-      memory: 512Mi
+      memory: 768Mi
     limits:
       cpu: "1"
-      memory: 1Gi
+      memory: 2Gi
 
   volume:
     size: 10Gi
