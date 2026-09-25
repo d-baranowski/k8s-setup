@@ -21,10 +21,7 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        # No api-gateway image is published until the first release that
-        # includes it (tools/release/services.sh lists it). Until then the pull
-        # fails; Flux moves the tag when one exists.
-        image: ghcr.io/inspiration-particle/utro-api-gateway:0.1.136 # {"$imagepolicy": "flux-system:utr-staging-api-gateway"}
+        image: ghcr.io/inspiration-particle/utro-api-gateway:0.1.139 # {"$imagepolicy": "flux-system:utr-staging-api-gateway"}
         ports:
         - containerPort: 9997
           name: api
@@ -44,7 +41,7 @@ spec:
         - name: SERVICE_ENV
           value: "staging"
         - name: SERVICE_VERSION
-          value: "0.1.136" # {"$imagepolicy": "flux-system:utr-staging-api-gateway:tag"}
+          value: "0.1.139" # {"$imagepolicy": "flux-system:utr-staging-api-gateway:tag"}
         # Bare host:port: pkg/gateway folds these into url.URL.Host.
         - name: CORE_SERVICE
           value: "utr-staging-core.default.svc.cluster.local:9102"
