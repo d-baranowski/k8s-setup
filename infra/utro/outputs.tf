@@ -65,18 +65,20 @@ output "assets_service_env" {
   description = "Non-secret env values for the assets statefulsets"
   value = {
     staging = {
-      STORAGE_ENDPOINT       = "s3.${var.aws_region}.amazonaws.com"
-      STORAGE_BUCKET         = module.assets_staging.bucket_id
-      STORAGE_REGION         = var.aws_region
-      STORAGE_USE_SSL        = "true"
-      ASSETS_PUBLIC_BASE_URL = module.assets_staging.public_base_url
+      STORAGE_ENDPOINT         = "s3.${var.aws_region}.amazonaws.com"
+      STORAGE_BUCKET           = module.assets_staging.bucket_id
+      STORAGE_DOCUMENTS_BUCKET = module.documents_staging.bucket_id
+      STORAGE_REGION           = var.aws_region
+      STORAGE_USE_SSL          = "true"
+      ASSETS_PUBLIC_BASE_URL   = module.assets_staging.public_base_url
     }
     prod = {
-      STORAGE_ENDPOINT       = "s3.${var.aws_region}.amazonaws.com"
-      STORAGE_BUCKET         = module.assets_prod.bucket_id
-      STORAGE_REGION         = var.aws_region
-      STORAGE_USE_SSL        = "true"
-      ASSETS_PUBLIC_BASE_URL = module.assets_prod.public_base_url
+      STORAGE_ENDPOINT         = "s3.${var.aws_region}.amazonaws.com"
+      STORAGE_BUCKET           = module.assets_prod.bucket_id
+      STORAGE_DOCUMENTS_BUCKET = module.documents_prod.bucket_id
+      STORAGE_REGION           = var.aws_region
+      STORAGE_USE_SSL          = "true"
+      ASSETS_PUBLIC_BASE_URL   = module.assets_prod.public_base_url
     }
   }
 }

@@ -9,7 +9,11 @@
         "arn:aws:s3:::__STAGING_BUCKET__",
         "arn:aws:s3:::__STAGING_BUCKET__/*",
         "arn:aws:s3:::__PROD_BUCKET__",
-        "arn:aws:s3:::__PROD_BUCKET__/*"
+        "arn:aws:s3:::__PROD_BUCKET__/*",
+        "arn:aws:s3:::__STAGING_DOCUMENTS_BUCKET__",
+        "arn:aws:s3:::__STAGING_DOCUMENTS_BUCKET__/*",
+        "arn:aws:s3:::__PROD_DOCUMENTS_BUCKET__",
+        "arn:aws:s3:::__PROD_DOCUMENTS_BUCKET__/*"
       ]
     },
     {

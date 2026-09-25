@@ -1,7 +1,7 @@
 variable "tags" {
   description = "Common tags to apply to resources"
   type        = map(string)
-  default     = {
+  default = {
     owner = "utro"
     env   = "may-chang"
   }
@@ -18,9 +18,9 @@ variable "gcp_project_id" {
 }
 
 variable "gcp_region" {
-    description = "GCP region"
-    type        = string
-    default     = "europe-central2"
+  description = "GCP region"
+  type        = string
+  default     = "europe-central2"
 }
 
 variable "create_user" {
@@ -75,19 +75,19 @@ variable "enable_google_signin" {
 }
 
 variable "aws_region" {
-    description = "AWS region to create resources in"
-    type        = string
-    # eu-central-1 is where the utro-a253e7cf-backups bucket (and the rest of
-    # this stack's AWS resources) actually live. The old eu-west-1 default was
-    # wrong and caused `import` blocks to report the bucket as non-existent —
-    # keep this in sync with the real region or state recovery breaks again.
-    default     = "eu-central-1"
+  description = "AWS region to create resources in"
+  type        = string
+  # eu-central-1 is where the utro-a253e7cf-backups bucket (and the rest of
+  # this stack's AWS resources) actually live. The old eu-west-1 default was
+  # wrong and caused `import` blocks to report the bucket as non-existent —
+  # keep this in sync with the real region or state recovery breaks again.
+  default = "eu-central-1"
 }
 
 variable "aws_profile" {
-    description = "AWS CLI profile to use for authentication (must have permissions to create the specified resources)"
-    type        = string
-    default     = "tf-admin"
+  description = "AWS CLI profile to use for authentication (must have permissions to create the specified resources)"
+  type        = string
+  default     = "tf-admin"
 }
 # ---------------------------------------------------------------------------
 # Assets service object storage + CDN (UTR-000266)
@@ -142,6 +142,26 @@ variable "assets_create_user" {
   description = "Create IAM users with static access keys for the assets service and export them to Google Secret Manager"
   type        = bool
   default     = true
+}
+
+# Keep in step with bootstrap-assets-role-policy.sh, which scopes the Terraform
+# role to these names.
+variable "documents_staging_bucket_name" {
+  description = "Private S3 bucket for staging documents. Bucket names are globally unique across all AWS accounts."
+  type        = string
+  default     = "utro-documents-staging"
+}
+
+variable "documents_prod_bucket_name" {
+  description = "Private S3 bucket for production documents. Bucket names are globally unique across all AWS accounts."
+  type        = string
+  default     = "utro-documents-prod"
+}
+
+variable "documents_prod_noncurrent_version_days" {
+  description = "Days an overwritten or deleted production document stays recoverable"
+  type        = number
+  default     = 90
 }
 
 variable "assets_cluster_manifests_path" {
