@@ -70,6 +70,11 @@ spec:
           value: "https://utro-test.inspi.cloud"
         - name: CUSTOMER_APP_URL
           value: "https://customer.inspi.cloud"
+        # Branded emails (UTR-000889) link practice logos as
+        # <base>/<id>/email; the dev default is localhost, which the config
+        # guard refuses outside dev, so the pod would not start without it.
+        - name: ASSETS_PUBLIC_BASE_URL
+          value: "https://utro-test-assets.inspi.cloud"
         - name: EMAIL_FROM_ADDRESS
           value: "kontakt@inspiration-particle.com"
         - name: EMAIL_API_KEY
