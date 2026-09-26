@@ -23,6 +23,9 @@ resources:
   # OpenSEO (clusters/may-chang/open-seo) — pod-level health only; the app
   # itself emits no OTel or Prometheus data.
   - open-seo-dashboards.yaml
+  # KubePdbNotEnoughHealthyPods without the postgres-operator's critical-op PDBs;
+  # here rather than in observability/ because PrometheusRule is a chart CRD.
+  - pdb-alerts.yaml
 
 configMapGenerator:
   - name: utro-dashboard-services
