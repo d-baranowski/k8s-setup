@@ -25,13 +25,13 @@ spec:
         - containerPort: 18007
           name: health
         env:
-        # Customer sign-in by code (UTR-000320). On for staging: the pepper secret
-        # must exist first, or core refuses to start. SMS stays off -- staging's
-        # notification service has no Twilio settings, and every text is paid for.
+        # Customer sign-in by code (UTR-000320), by email and SMS on staging: the
+        # pepper secret must exist first, or core refuses to start. Texts go out
+        # through staging's own Twilio account (notification-statefulset.yaml).
         - name: SIGN_IN_ENABLED
           value: "true"
         - name: SIGN_IN_SMS_ENABLED
-          value: "false"
+          value: "true"
         - name: SIGN_IN_PEPPER
           valueFrom:
             secretKeyRef:
