@@ -6,6 +6,7 @@ kind: Kustomization
 # this Kustomization from ever going Ready. The files stay here for launch.
 resources:
   - utro-core-sign-in-secret.yaml
+  - utro-ui-session-secret.yaml
   - gateway-statefulset.yaml
   - gateway-service.yaml
   - core-statefulset.yaml
