@@ -2,6 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - utr-staging-core-sign-in-secret.yaml
+  - utr-staging-ui-session-secret.yaml
   - db-cluster.yaml
   - core-migrate-job.yaml
   - core-statefulset.yaml
