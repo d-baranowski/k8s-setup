@@ -113,19 +113,36 @@ data "google_firebase_web_app_config" "customer" {
 
 # --- Gateway service account (token verification) -----------------------------
 
-# The customer-gateway verifies ID tokens with the Admin SDK. Plain verification
-# only needs Google's public certs, but revocation checks (checkRevoked) call
-# GetUser, so the SA needs read access to Identity Platform users. firebaseauth
-# viewer is the least-privilege role that grants firebaseauth.users.get.
+# The customer-gateway verifies ID tokens with the Admin SDK, and -- for sign-in
+# by code (UTR-000320) -- finds or creates the Firebase user behind a proven
+# address and mints a custom token for it. Revocation checks and the lookup need
+# users.get, a first sign-in needs users.create, marking an address verified
+# needs users.update. Custom tokens are signed locally with the mounted key, so
+# no signBlob role is needed.
+#
+# The key can now sign in as any user of this project: rotate it when this
+# ships, and keep staging off the production project (separate card).
 resource "google_service_account" "firebase_admin" {
   project      = var.gcp_project_id
   account_id   = "utro-customer-gw-fb"
   display_name = "utro customer-gateway Firebase token verifier"
 }
 
-resource "google_project_iam_member" "firebase_admin_viewer" {
+resource "google_project_iam_custom_role" "customer_gateway_auth" {
+  project     = var.gcp_project_id
+  role_id     = "utroCustomerGatewayAuth"
+  title       = "utro customer-gateway sign-in"
+  description = "Read, create and update Identity Platform users; nothing else (UTR-000320)."
+  permissions = [
+    "firebaseauth.users.get",
+    "firebaseauth.users.create",
+    "firebaseauth.users.update",
+  ]
+}
+
+resource "google_project_iam_member" "firebase_admin_sign_in" {
   project = var.gcp_project_id
-  role    = "roles/firebaseauth.viewer"
+  role    = google_project_iam_custom_role.customer_gateway_auth.id
   member  = "serviceAccount:${google_service_account.firebase_admin.email}"
 }
 
